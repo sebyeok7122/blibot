@@ -58,6 +58,53 @@ function loadAccounts() {
 function saveAccounts(accounts) {
   fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
 }
+// ✅ 디스코드 클라이언트 설정
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMembers
+  ],
+});
+
+// ✅ 환경 변수 및 기본 경로
+const token = process.env.BLIBOT_TOKEN;
+const clientId = '1392425978265075772';
+
+// ✅ 본섭 + 테섭 ID
+const guildIds = ["1309877071308394506", "686518979292037142"];
+
+// ✅ 슬래시 명령어 정의 (여기다가 commands 배열 작성)
+const commands = [
+  {
+    name: "계정등록",
+    description: "메인 계정을 등록합니다",
+  },
+  {
+    name: "부캐등록",
+    description: "부계정을 메인 계정에 연결합니다",
+  },
+];
+
+// ✅ 슬래시 명령어 등록 블록
+const rest = new REST({ version: '10' }).setToken(token);
+
+(async () => {
+  try {
+    console.log("🛰️ 슬래시 명령어 등록 시작...");
+    for (const gId of guildIds) {
+      await rest.put(
+        Routes.applicationGuildCommands(clientId, gId),
+        { body: commands }
+      );
+      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+})();
 
 // ✅ 슬래시 명령어 등록
 const commands = [
