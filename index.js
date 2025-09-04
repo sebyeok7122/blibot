@@ -40,7 +40,6 @@ const client = new Client({
 // ✅ 환경 변수 및 기본 경로
 const token = process.env.BLIBOT_TOKEN;
 const clientId = '1392425978265075772';
-const guildId = '1309877071308394506';
 const logChannelId = '1392867376990519306';
 
 const attendancePath = path.join(__dirname, 'attendance.json');
@@ -58,25 +57,11 @@ function loadAccounts() {
 function saveAccounts(accounts) {
   fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
 }
-// ✅ 디스코드 클라이언트 설정
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMembers
-  ],
-});
-
-// ✅ 환경 변수 및 기본 경로
-const token = process.env.BLIBOT_TOKEN;
-const clientId = '1392425978265075772';
 
 // ✅ 본섭 + 테섭 ID
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
-// ✅ 슬래시 명령어 정의 (여기다가 commands 배열 작성)
+// ✅ 슬래시 명령어 정의
 const commands = [
   {
     name: "계정등록",
@@ -106,7 +91,6 @@ const rest = new REST({ version: '10' }).setToken(token);
   }
 })();
 
-// ✅ 슬래시 명령어 등록
 const commands = [
   new SlashCommandBuilder()
     .setName('계정등록')
