@@ -25,7 +25,6 @@ async function fetchMatchHistory() {
   return data; // 딥롤 JSON 내용
 }
 
-
 // ✅ 디스코드 클라이언트 설정
 const client = new Client({
   intents: [
@@ -61,22 +60,7 @@ function saveAccounts(accounts) {
 // ✅ 본섭 + 테섭 ID
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
-
-(async () => {
-  try {
-    console.log("🛰️ 슬래시 명령어 등록 시작...");
-    for (const gId of guildIds) {
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, gId),
-        { body: commands }
-      );
-      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
-    }
-  } catch (error) {
-    console.error(error);
-  }
-})();
-
+// ✅ 슬래시 명령어 정의
 const commands = [
   new SlashCommandBuilder()
     .setName('계정등록')
@@ -125,12 +109,8 @@ const commands = [
     ),
   new SlashCommandBuilder().setName('최근10판').setDescription('최근 10판 내전 전적을 확인합니다.'),
   new SlashCommandBuilder().setName('모스트픽10').setDescription('모스트 챔피언 TOP10을 확인합니다.'),
-  new SlashCommandBuilder()
-    .setName('내전판수')
-    .setDescription('내전 경기 수 TOP30을 확인합니다.'),
-  new SlashCommandBuilder()
-    .setName('내전랭킹')
-    .setDescription('내전 랭킹 TOP30을 확인합니다.'),
+  new SlashCommandBuilder().setName('내전판수').setDescription('내전 경기 수 TOP30을 확인합니다.'),
+  new SlashCommandBuilder().setName('내전랭킹').setDescription('내전 랭킹 TOP30을 확인합니다.'),
   new SlashCommandBuilder()
     .setName('내전리셋')
     .setDescription('특정 유저 전적 초기화')
@@ -139,9 +119,7 @@ const commands = [
         .setDescription('초기화할 유저')
         .setRequired(true)
     ),
-  new SlashCommandBuilder()
-    .setName('내전데이터리셋')
-    .setDescription('모든 내전 기록 초기화'),
+  new SlashCommandBuilder().setName('내전데이터리셋').setDescription('모든 내전 기록 초기화'),
   new SlashCommandBuilder()
     .setName('팀워크상성')
     .setDescription('두 유저의 팀워크 상성을 확인합니다.')
@@ -162,16 +140,21 @@ const commands = [
     ),
 ];
 
+// ✅ 슬래시 명령어 등록 블록
 const rest = new REST({ version: '10' }).setToken(token);
+
 (async () => {
   try {
-    console.log('📦 블리봇 슬래시 명령어 등록 중...');
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: commands.map(c => c.toJSON()),
-    });
-    console.log('✅ 슬래시 명령어 등록 완료!');
+    console.log("📦 블리봇 슬래시 명령어 등록 중...");
+    for (const gId of guildIds) {
+      await rest.put(
+        Routes.applicationGuildCommands(clientId, gId),
+        { body: commands.map(c => c.toJSON()) }
+      );
+      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
+    }
   } catch (err) {
-    console.error('❌ 명령어 등록 중 오류:', err);
+    console.error("❌ 명령어 등록 중 오류:", err);
   }
 })();
 
@@ -193,25 +176,17 @@ client.on('interactionCreate', async interaction => {
     const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
     const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
 
-    // 메시지 전송 후 객체 저장
     const replyMsg = await interaction.reply({
       content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
       components: [row],
       withResponse: true
     });
 
-    // 40분 후 막판/대기 버튼 추가
     setTimeout(async () => {
       try {
         const lateButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('last_call')
-            .setLabel('🔥 막판')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('wait')
-            .setLabel('⏳ 대기')
-            .setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
         );
 
         await replyMsg.edit({
@@ -221,16 +196,13 @@ client.on('interactionCreate', async interaction => {
       } catch (err) {
         console.error('막판/대기 버튼 추가 오류:', err);
       }
-    }, 1000 * 60 * 40); // 40분 후 실행
+    }, 1000 * 60 * 40);
   }
-
-  // (나머지 전적, 최근10판, 모스트픽10, 내전판수, 내전랭킹, 리셋, 상성 명령어들은 그대로 유지)
 });
 
 // 전역 상태: 메시지별 참가자/상태 관리
-const roomState = new Map(); // messageId -> { members: string[], last: Set<string>, wait: Set<string> }
+const roomState = new Map();
 
-// 유틸: 메시지 본문 렌더링
 function renderContent(base, state) {
   const { members, last, wait } = state;
   const asList = ids => (ids.length ? ids.map(id => `<@${id}>`).join('\n') : '(없음)');
@@ -238,7 +210,6 @@ function renderContent(base, state) {
   const lastText    = asList([...last]);
   const waitText    = asList([...wait]);
 
-  // base(원문)에서 참여자 블록 이후를 모두 재작성
   const head = base.split('\n\n참여자:')[0];
   return (
     `${head}\n\n` +
@@ -253,11 +224,9 @@ client.on('interactionCreate', async (interaction) => {
   const { customId, user, message } = interaction;
   const key = message.id;
 
-  // 상태 초기화
   if (!roomState.has(key)) roomState.set(key, { members: [], last: new Set(), wait: new Set() });
   const state = roomState.get(key);
 
-  // 헬퍼: 메시지 업데이트
   const updateMessage = () => interaction.update({
     content: renderContent(message.content, state),
     components: message.components
@@ -265,9 +234,6 @@ client.on('interactionCreate', async (interaction) => {
 
   if (customId === 'join_game') {
     if (!state.members.includes(user.id)) state.members.push(user.id);
-    // 참여하면 대기/막판 표시는 유지해도 되고, 초기화하고 싶으면 아래 두 줄 주석 해제:
-    // state.last.delete(user.id);
-    // state.wait.delete(user.id);
     return updateMessage();
   }
 
@@ -279,10 +245,8 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   if (customId === 'last_call') {
-    // 막판 표시는 last에 넣고 wait에서는 제거
     state.last.add(user.id);
     state.wait.delete(user.id);
-    // ⚠️ 모두 보이도록 메시지 자체를 업데이트 (ephemeral X)
     return updateMessage();
   }
 
