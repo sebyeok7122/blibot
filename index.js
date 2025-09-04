@@ -61,18 +61,6 @@ function saveAccounts(accounts) {
 // ✅ 본섭 + 테섭 ID
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
-// ✅ 슬래시 명령어 정의
-const commands = [
-  {
-    name: "계정등록",
-    description: "메인 계정을 등록합니다",
-  },
-  {
-    name: "부캐등록",
-    description: "부계정을 메인 계정에 연결합니다",
-  },
-];
-
 // ✅ 슬래시 명령어 등록 블록
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -90,7 +78,6 @@ const rest = new REST({ version: '10' }).setToken(token);
     console.error(error);
   }
 })();
-
 
 const commands = [
   new SlashCommandBuilder()
