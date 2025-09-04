@@ -1,8 +1,5 @@
 // ✅ 환경 변수 불러오기
 require('dotenv').config();
-const RIOT_API_KEY = process.env.RIOT_API_KEY;
-
-// ✅ 모듈 불러오기
 const { 
   Client, 
   GatewayIntentBits, 
@@ -11,26 +8,17 @@ const {
   SlashCommandBuilder,
   ActionRowBuilder, 
   ButtonBuilder, 
-  ButtonStyle 
+  ButtonStyle
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
-// 🔹 딥롤 JSON 불러오기 유틸
-async function fetchMatchHistory() {
-  const url = process.env.DEEPROLL_RAW_URL;
-  const { data } = await axios.get(url);
-  return data; // 딥롤 JSON 내용
-}
-
-// ✅ 디스코드 클라이언트 설정
+// ✅ 클라이언트 생성
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildMembers
   ],
 });
@@ -38,11 +26,9 @@ const client = new Client({
 // ✅ 환경 변수 및 기본 경로
 const token = process.env.BLIBOT_TOKEN;
 const clientId = '1392425978265075772';
-const logChannelId = '1392867376990519306';
+const guildIds = ["1309877071308394506", "686518979292037142"];
 
-const attendancePath = path.join(__dirname, 'attendance.json');
 const accountPath = path.join(__dirname, 'accounts.json');
-const matchHistoryPath = path.join(__dirname, 'matchHistory.json');
 
 // ✅ JSON 함수
 function loadAccounts() {
@@ -56,16 +42,85 @@ function saveAccounts(accounts) {
   fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
 }
 
-// ✅ 본섭 + 테섭 ID
-const guildIds = ["1309877071308394506", "686518979292037142"];
+// ✅ 명령어 정의
+const commands = [
+  new SlashCommandBuilder()
+    .setName('계정등록')
+    .setDescription('메인 계정을 등록합니다.')
+    .addStringOption(option =>
+      option.setName('라이엇닉네임')
+        .setDescription('라이엇 닉네임#태그')
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName('부캐등록')
+    .setDescription('부캐를 메인 계정과 연결합니다.')
+    .addStringOption(option =>
+      option.setName('부캐닉네임')
+        .setDescription('부캐 닉네임')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('메인닉네임')
+        .setDescription('메인 계정 닉네임')
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName('내전')
+    .setDescription('내전을 모집합니다.')
+    .addStringOption(option =>
+      option.setName('시간')
+        .setDescription('내전 시작 시간')
+        .setRequired(true)
+    ),
+];
 
-// ✅ 슬래시 명령어 처리
+// ✅ 명령어 등록
+const rest = new REST({ version: '10' }).setToken(token);
+
+(async () => {
+  try {
+    console.log("🛰️ 슬래시 명령어 등록 시작...");
+    for (const gId of guildIds) {
+      await rest.put(
+        Routes.applicationGuildCommands(clientId, gId),
+        { body: commands.map(c => c.toJSON()) }
+      );
+      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
+    }
+  } catch (error) {
+    console.error('❌ 명령어 등록 오류:', error);
+  }
+})();
+
+// ✅ 전역 상태: 내전 참가 관리
+const roomState = new Map(); // messageId -> { members: string[], last: Set, wait: Set }
+
+// ✅ 메시지 렌더링 함수
+function renderContent(base, state) {
+  const { members, last, wait } = state;
+  const asList = ids => (ids.length ? ids.map(id => `<@${id}>`).join('\n') : '(없음)');
+  const membersText = asList(members);
+  const lastText = asList([...last]);
+  const waitText = asList([...wait]);
+
+  const head = base.split('\n\n참여자:')[0];
+  return (
+    `${head}\n\n` +
+    `참여자:\n${membersText}\n\n` +
+    `❌ 막판:\n${lastText}\n\n` +
+    `⭕ 대기:\n${waitText}`
+  );
+}
+
+// ✅ interactionCreate 처리
 client.on('interactionCreate', async (interaction) => {
+  // 🎯 슬래시 명령어
   if (interaction.isChatInputCommand()) {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-    // ✅ /계정등록
+    // /계정등록
     if (commandName === '계정등록') {
       const riotNick = options.getString('라이엇닉네임');
       let accounts = loadAccounts();
@@ -87,7 +142,7 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // ✅ /부캐등록
+    // /부캐등록
     if (commandName === '부캐등록') {
       const subNick = options.getString('부캐닉네임');
       const mainNick = options.getString('메인닉네임');
@@ -110,20 +165,12 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // ✅ /내전
+    // /내전
     if (commandName === '내전') {
       const startTime = options.getString('시간');
 
-      const joinBtn = new ButtonBuilder()
-        .setCustomId('join_game')
-        .setLabel('✅ 참여')
-        .setStyle(ButtonStyle.Success);
-
-      const leaveBtn = new ButtonBuilder()
-        .setCustomId('leave_game')
-        .setLabel('❌ 취소')
-        .setStyle(ButtonStyle.Danger);
-
+      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
+      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
       const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
 
       const replyMsg = await interaction.reply({
@@ -132,21 +179,14 @@ client.on('interactionCreate', async (interaction) => {
         fetchReply: true
       });
 
-      // 메시지별 상태 초기화
       roomState.set(replyMsg.id, { members: [], last: new Set(), wait: new Set() });
 
       // 40분 후 막판/대기 버튼 추가
       setTimeout(async () => {
         try {
           const lateButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId('last_call')
-              .setLabel('🔥 막판')
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId('wait')
-              .setLabel('⏳ 대기')
-              .setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
           );
 
           await replyMsg.edit({
@@ -156,18 +196,16 @@ client.on('interactionCreate', async (interaction) => {
         } catch (err) {
           console.error('막판/대기 버튼 추가 오류:', err);
         }
-      }, 1000 * 60 * 40); // 40분 후
+      }, 1000 * 60 * 40);
     }
   }
 
-  // ✅ 버튼 처리
+  // 🎯 버튼 핸들러
   if (interaction.isButton()) {
     const { customId, user, message } = interaction;
     const key = message.id;
 
-    if (!roomState.has(key)) {
-      roomState.set(key, { members: [], last: new Set(), wait: new Set() });
-    }
+    if (!roomState.has(key)) roomState.set(key, { members: [], last: new Set(), wait: new Set() });
     const state = roomState.get(key);
 
     const updateMessage = () => interaction.update({
@@ -198,147 +236,16 @@ client.on('interactionCreate', async (interaction) => {
       state.last.delete(user.id);
       return updateMessage();
     }
-  }
-});
 
-// ✅ 슬래시 명령어 등록 블록
-const rest = new REST({ version: '10' }).setToken(token);
-
-(async () => {
-  try {
-    console.log('📦 블리봇 슬래시 명령어 등록 중...');
-    for (const gId of guildIds) {
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, gId),
-        { body: commands.map(c => c.toJSON()) }
-      );
-      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
-    }
-  } catch (err) {
-    console.error('❌ 명령어 등록 중 오류:', err);
-  }
-})();
-
-// ✅ 통합 이벤트 핸들러 (슬래시 명령어 처리)
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  const { commandName, options, user } = interaction;
-
-  // ✅ 내전 모집
-  if (commandName === '내전') {
-    const startTime = options.getString('시간');
-    const participants = [];
-
-    const joinBtn = new ButtonBuilder()
-      .setCustomId('join_game')
-      .setLabel('✅ 참여')
-      .setStyle(ButtonStyle.Success);
-    const leaveBtn = new ButtonBuilder()
-      .setCustomId('leave_game')
-      .setLabel('❌ 취소')
-      .setStyle(ButtonStyle.Danger);
-    const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
-
-    // 내전 모집 멘트
-    const replyMsg = await interaction.reply({
-      content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-      components: [row],
-      fetchReply: true
-    });
-
-    // 40분 후 막판/대기 버튼 추가
-    setTimeout(async () => {
-      try {
-        const lateButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('last_call')
-            .setLabel('🔥 막판')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('wait')
-            .setLabel('⏳ 대기')
-            .setStyle(ButtonStyle.Secondary)
-        );
-
-        await replyMsg.edit({
-          content: replyMsg.content + '\n\n🕒 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-          components: [row, lateButtons]
-        });
-      } catch (err) {
-        console.error('막판/대기 버튼 추가 오류:', err);
+    if (customId === 'cancel_match') {
+      const hostId = message.interaction?.user?.id;
+      if (user.id !== hostId) {
+        return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
       }
-    }, 1000 * 60 * 40); // 40분 후 실행
-  }
-});
-
-// 전역 상태: 메시지별 참가자/상태 관리
-const roomState = new Map(); // messageId -> { members: string[], last: Set<string>, wait: Set<string> }
-
-// 유틸: 메시지 본문 렌더링
-function renderContent(base, state) {
-  const { members, last, wait } = state;
-  const asList = ids => (ids.length ? ids.map(id => `<@${id}>`).join('\n') : '(없음)');
-  const membersText = asList(members);
-  const lastText    = asList([...last]);
-  const waitText    = asList([...wait]);
-
-  const head = base.split('\n\n참여자:')[0];
-  return (
-    `${head}\n\n` +
-    `참여자:\n${membersText}\n\n` +
-    `❌ 막판:\n${lastText}\n\n` +
-    `⭕ 대기:\n${waitText}`
-  );
-}
-
-// ✅ 버튼 핸들러
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isButton()) return;
-  const { customId, user, message } = interaction;
-  const key = message.id;
-
-  // 상태 초기화
-  if (!roomState.has(key)) roomState.set(key, { members: [], last: new Set(), wait: new Set() });
-  const state = roomState.get(key);
-
-  // 헬퍼: 메시지 업데이트
-  const updateMessage = () => interaction.update({
-    content: renderContent(message.content, state),
-    components: message.components
-  });
-
-  if (customId === 'join_game') {
-    if (!state.members.includes(user.id)) state.members.push(user.id);
-    return updateMessage();
-  }
-
-  if (customId === 'leave_game') {
-    state.members = state.members.filter(id => id !== user.id);
-    state.last.delete(user.id);
-    state.wait.delete(user.id);
-    return updateMessage();
-  }
-
-  if (customId === 'last_call') {
-    state.last.add(user.id);
-    state.wait.delete(user.id);
-    return updateMessage();
-  }
-
-  if (customId === 'wait') {
-    state.wait.add(user.id);
-    state.last.delete(user.id);
-    return updateMessage();
-  }
-
-  if (customId === 'cancel_match') {
-    const hostId = message.interaction?.user?.id;
-    if (user.id !== hostId) {
-      return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
+      roomState.delete(key);
+      await message.delete().catch(() => {});
+      return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
     }
-    roomState.delete(key);
-    await message.delete().catch(() => {});
-    return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
   }
 });
 
@@ -373,5 +280,6 @@ async function updateMMR(userId, result) {
   saveAccounts(accounts);
 }
 
-// ✅ 봇 로그인
+// ✅ 로그인
 client.login(token);
+
