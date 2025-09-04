@@ -59,85 +59,147 @@ function saveAccounts(accounts) {
 // ✅ 본섭 + 테섭 ID
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
-// ✅ 슬래시 명령어 정의
-const commands = [
-  new SlashCommandBuilder()
-    .setName('계정등록')
-    .setDescription('메인 계정을 등록합니다.')
-    .addStringOption(option =>
-      option.setName('라이엇닉네임')
-        .setDescription('라이엇 닉네임#태그')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('부캐등록')
-    .setDescription('부캐를 메인 계정과 연결합니다.')
-    .addStringOption(option =>
-      option.setName('부캐닉네임')
-        .setDescription('부캐 닉네임')
-        .setRequired(true)
-    )
-    .addStringOption(option =>
-      option.setName('메인닉네임')
-        .setDescription('메인 계정 닉네임')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('닉네임검사')
-    .setDescription('라이엇 닉네임이 존재하는지 확인합니다')
-    .addStringOption(option =>
-      option.setName('닉네임')
-        .setDescription('라이엇 닉네임#태그 입력 (예: 새벽#반딧불이)')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('내전')
-    .setDescription('내전을 모집합니다.')
-    .addStringOption(option =>
-      option.setName('시간')
-        .setDescription('내전 시작 시간')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('전적')
-    .setDescription('해당 계정 전적을 확인합니다.')
-    .addStringOption(option =>
-      option.setName('계정명')
-        .setDescription('등록된 계정명')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder().setName('최근10판').setDescription('최근 10판 내전 전적을 확인합니다.'),
-  new SlashCommandBuilder().setName('모스트픽10').setDescription('모스트 챔피언 TOP10을 확인합니다.'),
-  new SlashCommandBuilder().setName('내전판수').setDescription('내전 경기 수 TOP30을 확인합니다.'),
-  new SlashCommandBuilder().setName('내전랭킹').setDescription('내전 랭킹 TOP30을 확인합니다.'),
-  new SlashCommandBuilder()
-    .setName('내전리셋')
-    .setDescription('특정 유저 전적 초기화')
-    .addUserOption(option =>
-      option.setName('유저')
-        .setDescription('초기화할 유저')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder().setName('내전데이터리셋').setDescription('모든 내전 기록 초기화'),
-  new SlashCommandBuilder()
-    .setName('팀워크상성')
-    .setDescription('두 유저의 팀워크 상성을 확인합니다.')
-    .addUserOption(option =>
-      option.setName('유저1').setDescription('첫번째 유저').setRequired(true)
-    )
-    .addUserOption(option =>
-      option.setName('유저2').setDescription('두번째 유저').setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('맞라인상성')
-    .setDescription('두 유저의 맞라인 상성을 확인합니다.')
-    .addUserOption(option =>
-      option.setName('유저1').setDescription('첫번째 유저').setRequired(true)
-    )
-    .addUserOption(option =>
-      option.setName('유저2').setDescription('두번째 유저').setRequired(true)
-    ),
-];
+// ✅ 슬래시 명령어 처리
+client.on('interactionCreate', async (interaction) => {
+  if (interaction.isChatInputCommand()) {
+    const { commandName, options, user } = interaction;
+    const userId = user.id;
+
+    // ✅ /계정등록
+    if (commandName === '계정등록') {
+      const riotNick = options.getString('라이엇닉네임');
+      let accounts = loadAccounts();
+
+      if (!accounts[userId]) {
+        accounts[userId] = {
+          main: riotNick,
+          alts: [],
+          wins: 0,
+          losses: 0,
+          mmr: 1000,
+          streak: 0,
+          gamesPlayed: 0,
+        };
+        saveAccounts(accounts);
+        return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${riotNick}** 으로 등록되었습니다!`);
+      } else {
+        return interaction.reply(`⚠️ 이미 메인 계정을 등록하셨습니다. 현재 등록된 계정: **${accounts[userId].main}**`);
+      }
+    }
+
+    // ✅ /부캐등록
+    if (commandName === '부캐등록') {
+      const subNick = options.getString('부캐닉네임');
+      const mainNick = options.getString('메인닉네임');
+      let accounts = loadAccounts();
+
+      if (!accounts[userId]) {
+        return interaction.reply(`❌ 먼저 /계정등록 으로 메인 계정을 등록해야 합니다.`);
+      }
+
+      if (accounts[userId].main !== mainNick) {
+        return interaction.reply(`⚠️ 입력한 메인 닉네임이 등록된 계정과 일치하지 않습니다.\n현재 메인: **${accounts[userId].main}**`);
+      }
+
+      if (!accounts[userId].alts.includes(subNick)) {
+        accounts[userId].alts.push(subNick);
+        saveAccounts(accounts);
+        return interaction.reply(`✅ 부캐 **${subNick}** 가 메인 계정 **${mainNick}** 과 연결되었습니다!`);
+      } else {
+        return interaction.reply(`⚠️ 이미 등록된 부캐입니다: **${subNick}**`);
+      }
+    }
+
+    // ✅ /내전
+    if (commandName === '내전') {
+      const startTime = options.getString('시간');
+
+      const joinBtn = new ButtonBuilder()
+        .setCustomId('join_game')
+        .setLabel('✅ 참여')
+        .setStyle(ButtonStyle.Success);
+
+      const leaveBtn = new ButtonBuilder()
+        .setCustomId('leave_game')
+        .setLabel('❌ 취소')
+        .setStyle(ButtonStyle.Danger);
+
+      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
+
+      const replyMsg = await interaction.reply({
+        content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
+        components: [row],
+        fetchReply: true
+      });
+
+      // 메시지별 상태 초기화
+      roomState.set(replyMsg.id, { members: [], last: new Set(), wait: new Set() });
+
+      // 40분 후 막판/대기 버튼 추가
+      setTimeout(async () => {
+        try {
+          const lateButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('last_call')
+              .setLabel('🔥 막판')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('wait')
+              .setLabel('⏳ 대기')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+          await replyMsg.edit({
+            content: replyMsg.content + '\n\n🕒 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+            components: [row, lateButtons]
+          });
+        } catch (err) {
+          console.error('막판/대기 버튼 추가 오류:', err);
+        }
+      }, 1000 * 60 * 40); // 40분 후
+    }
+  }
+
+  // ✅ 버튼 처리
+  if (interaction.isButton()) {
+    const { customId, user, message } = interaction;
+    const key = message.id;
+
+    if (!roomState.has(key)) {
+      roomState.set(key, { members: [], last: new Set(), wait: new Set() });
+    }
+    const state = roomState.get(key);
+
+    const updateMessage = () => interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components
+    });
+
+    if (customId === 'join_game') {
+      if (!state.members.includes(user.id)) state.members.push(user.id);
+      return updateMessage();
+    }
+
+    if (customId === 'leave_game') {
+      state.members = state.members.filter(id => id !== user.id);
+      state.last.delete(user.id);
+      state.wait.delete(user.id);
+      return updateMessage();
+    }
+
+    if (customId === 'last_call') {
+      state.last.add(user.id);
+      state.wait.delete(user.id);
+      return updateMessage();
+    }
+
+    if (customId === 'wait') {
+      state.wait.add(user.id);
+      state.last.delete(user.id);
+      return updateMessage();
+    }
+  }
+});
 
 // ✅ 슬래시 명령어 등록 블록
 const rest = new REST({ version: '10' }).setToken(token);
