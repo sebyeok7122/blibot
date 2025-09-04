@@ -15,10 +15,9 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-
-// 🔹 딥롤 JSON 불러오기 유틸
 const axios = require('axios');
 
+// 🔹 딥롤 JSON 불러오기 유틸
 async function fetchMatchHistory() {
   const url = process.env.DEEPROLL_RAW_URL;
   const { data } = await axios.get(url);
@@ -88,7 +87,7 @@ const commands = [
     .setDescription('라이엇 닉네임이 존재하는지 확인합니다')
     .addStringOption(option =>
       option.setName('닉네임')
-        .setDescription('라이엇 닉네임#태그 입력 (예: 새 벽#반딧불이)')
+        .setDescription('라이엇 닉네임#태그 입력 (예: 새벽#반딧불이)')
         .setRequired(true)
     ),
   new SlashCommandBuilder()
@@ -145,7 +144,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   try {
-    console.log("📦 블리봇 슬래시 명령어 등록 중...");
+    console.log('📦 블리봇 슬래시 명령어 등록 중...');
     for (const gId of guildIds) {
       await rest.put(
         Routes.applicationGuildCommands(clientId, gId),
@@ -154,39 +153,49 @@ const rest = new REST({ version: '10' }).setToken(token);
       console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
     }
   } catch (err) {
-    console.error("❌ 명령어 등록 중 오류:", err);
+    console.error('❌ 명령어 등록 중 오류:', err);
   }
 })();
 
 // ✅ 통합 이벤트 핸들러 (슬래시 명령어 처리)
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  const { commandName, options, user, member } = interaction;
-  const userId = user.id;
-  const tag = user.tag;
+  const { commandName, options, user } = interaction;
 
-  // (생략된 기존 계정등록, 부캐등록, 닉네임검사 등 그대로 유지)
-
-  // ✅ 내전
+  // ✅ 내전 모집
   if (commandName === '내전') {
     const startTime = options.getString('시간');
-    participants = [];
+    const participants = [];
 
-    const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
-    const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
+    const joinBtn = new ButtonBuilder()
+      .setCustomId('join_game')
+      .setLabel('✅ 참여')
+      .setStyle(ButtonStyle.Success);
+    const leaveBtn = new ButtonBuilder()
+      .setCustomId('leave_game')
+      .setLabel('❌ 취소')
+      .setStyle(ButtonStyle.Danger);
     const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
 
+    // 내전 모집 멘트
     const replyMsg = await interaction.reply({
       content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
       components: [row],
-      withResponse: true
+      fetchReply: true
     });
 
+    // 40분 후 막판/대기 버튼 추가
     setTimeout(async () => {
       try {
         const lateButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder()
+            .setCustomId('last_call')
+            .setLabel('🔥 막판')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('wait')
+            .setLabel('⏳ 대기')
+            .setStyle(ButtonStyle.Secondary)
         );
 
         await replyMsg.edit({
@@ -196,13 +205,14 @@ client.on('interactionCreate', async interaction => {
       } catch (err) {
         console.error('막판/대기 버튼 추가 오류:', err);
       }
-    }, 1000 * 60 * 40);
+    }, 1000 * 60 * 40); // 40분 후 실행
   }
 });
 
 // 전역 상태: 메시지별 참가자/상태 관리
-const roomState = new Map();
+const roomState = new Map(); // messageId -> { members: string[], last: Set<string>, wait: Set<string> }
 
+// 유틸: 메시지 본문 렌더링
 function renderContent(base, state) {
   const { members, last, wait } = state;
   const asList = ids => (ids.length ? ids.map(id => `<@${id}>`).join('\n') : '(없음)');
@@ -219,14 +229,17 @@ function renderContent(base, state) {
   );
 }
 
+// ✅ 버튼 핸들러
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   const { customId, user, message } = interaction;
   const key = message.id;
 
+  // 상태 초기화
   if (!roomState.has(key)) roomState.set(key, { members: [], last: new Set(), wait: new Set() });
   const state = roomState.get(key);
 
+  // 헬퍼: 메시지 업데이트
   const updateMessage = () => interaction.update({
     content: renderContent(message.content, state),
     components: message.components
@@ -272,7 +285,9 @@ async function updateMMR(userId, result) {
   let accounts = loadAccounts();
   if (!accounts[userId]) return;
   let u = accounts[userId];
+
   u.gamesPlayed = (u.gamesPlayed || 0) + 1;
+
   if (result === '승') {
     u.wins++;
     u.streak = u.streak >= 0 ? u.streak + 1 : 1;
@@ -280,8 +295,10 @@ async function updateMMR(userId, result) {
     u.losses++;
     u.streak = u.streak <= 0 ? u.streak - 1 : -1;
   }
+
   let change = 20;
   if (Math.abs(u.streak) >= 3) change += Math.abs(u.streak) - 2;
+
   if (u.gamesPlayed <= 10) {
     if (result === '승') u.mmr += (change + 10);
     else u.mmr -= Math.floor(change / 2);
@@ -289,8 +306,10 @@ async function updateMMR(userId, result) {
     if (result === '승') u.mmr += change;
     else u.mmr -= change;
   }
+
   if (u.mmr < 0) u.mmr = 0;
   saveAccounts(accounts);
 }
 
+// ✅ 봇 로그인
 client.login(token);
