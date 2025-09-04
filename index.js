@@ -65,15 +65,19 @@ const commands = [
         .setDescription('메인 계정 닉네임')
         .setRequired(true)
     ),
-  new SlashCommandBuilder()
-    .setName('내전')
-    .setDescription('내전을 모집합니다.')
-    .addStringOption(option =>
-      option.setName('시간')
-        .setDescription('내전 시작 시간')
-        .setRequired(true)
-    ),
+ new SlashCommandBuilder()
+  .setName('내전')
+  .setDescription('내전을 모집합니다.')
+  .addStringOption(option =>
+    option.setName('시간')
+      .setDescription('내전 시작 시간')
+      .setRequired(true)
+  ),
+new SlashCommandBuilder()
+  .setName('계정삭제')
+  .setDescription('내 계정 데이터를 삭제합니다.'),
 ];
+
 
 // ✅ 명령어 등록
 const rest = new REST({ version: '10' }).setToken(token);
@@ -121,26 +125,38 @@ client.on('interactionCreate', async (interaction) => {
     const userId = user.id;
 
     // /계정등록
-    if (commandName === '계정등록') {
-      const riotNick = options.getString('라이엇닉네임');
-      let accounts = loadAccounts();
+if (commandName === '계정등록') {
+  const riotNick = options.getString('라이엇닉네임');
+  let accounts = loadAccounts();
 
-      if (!accounts[userId]) {
-        accounts[userId] = {
-          main: riotNick,
-          alts: [],
-          wins: 0,
-          losses: 0,
-          mmr: 1000,
-          streak: 0,
-          gamesPlayed: 0,
-        };
-        saveAccounts(accounts);
-        return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${riotNick}** 으로 등록되었습니다!`);
-      } else {
-        return interaction.reply(`⚠️ 이미 메인 계정을 등록하셨습니다. 현재 등록된 계정: **${accounts[userId].main}**`);
-      }
-    }
+  if (!accounts[userId]) {
+    accounts[userId] = {
+      main: riotNick,
+      alts: [],
+      wins: 0,
+      losses: 0,
+      mmr: 1000,
+      streak: 0,
+      gamesPlayed: 0,
+    };
+    saveAccounts(accounts);
+    return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${riotNick}** 으로 등록되었습니다!`);
+  } else {
+    return interaction.reply(`⚠️ 이미 메인 계정을 등록하셨네요 ! 현재 등록된 계정: **${accounts[userId].main}**`);
+  }
+}
+
+// /계정삭제
+if (commandName === '계정삭제') {
+  let accounts = loadAccounts();
+  if (accounts[userId]) {
+    delete accounts[userId];
+    saveAccounts(accounts);
+    return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요! 다시 /계정등록 해주세요 🌼`);
+  } else {
+    return interaction.reply(`❌ 등록된 계정이 없습니다.`);
+  }
+}
 
     // /부캐등록
     if (commandName === '부캐등록') {
@@ -190,7 +206,7 @@ client.on('interactionCreate', async (interaction) => {
           );
 
           await replyMsg.edit({
-            content: replyMsg.content + '\n\n🕒 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+            content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
             components: [row, lateButtons]
           });
         } catch (err) {
