@@ -279,12 +279,14 @@ if (commandName === '딥롤방연결') {
 }
 
 
-  // 🎯 버튼 핸들러
+  // 🎯 버튼 핸들러 처리
   if (interaction.isButton()) {
     const { customId, user, message } = interaction;
     const key = message.id;
 
-    if (!roomState.has(key)) roomState.set(key, { members: [], last: new Set(), wait: new Set() });
+    if (!roomState.has(key)) {
+      roomState.set(key, { members: [], last: new Set(), wait: new Set() });
+    }
     const state = roomState.get(key);
 
     const updateMessage = () => interaction.update({
@@ -325,7 +327,8 @@ if (commandName === '딥롤방연결') {
       await message.delete().catch(() => {});
       return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
     }
-  });
+  }
+});
 
 // ✅ MMR 갱신 함수
 async function updateMMR(userId, result) {
