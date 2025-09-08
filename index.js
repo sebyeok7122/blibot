@@ -255,28 +255,28 @@ if (commandName === '내전') {
   }, 1000 * 60 * 40);
 }
 
-// /딥롤방연결
-if (commandName === '딥롤방연결') {
-  const matchId = options.getString('matchid', true);
-  const roomCode = options.getString('roomcode', true);
+  if (commandName === '딥롤방연결') {
+    const matchId = options.getString('matchid', true);
+    const roomCode = options.getString('roomcode', true);
 
-  try {
-    const map = await readJSONSafe(LINKS_PATH, {});
-    map[matchId] = { roomCode, updatedAt: Date.now() };
-    await writeJSONSafe(LINKS_PATH, map);
+    try {
+      const map = await readJSONSafe(LINKS_PATH, {});
+      map[matchId] = { roomCode, updatedAt: Date.now() };
+      await writeJSONSafe(LINKS_PATH, map);
 
-    return interaction.reply({
-      content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`,
-      ephemeral: true
-    });
-  } catch (e) {
-    console.error('딥롤방연결 오류:', e);
-    return interaction.reply({
-      content: '❌ 연결 중 오류가 발생했어요.',
-      ephemeral: true
-    });
+      return interaction.reply({
+        content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`,
+        ephemeral: true
+      });
+    } catch (e) {
+      console.error('딥롤방연결 오류:', e);
+      return interaction.reply({
+        content: '❌ 연결 중 오류가 발생했어요.',
+        ephemeral: true
+      });
+    }
   }
-}
+}   // ✅ 여기서 isChatInputCommand 닫기
 
 
   // 🎯 버튼 핸들러 처리
