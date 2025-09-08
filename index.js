@@ -42,6 +42,24 @@ function saveAccounts(accounts) {
   fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
 }
 
+// ✅ deeplol_links.json 유틸
+const fsP = require('fs/promises');
+const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
+
+async function readJSONSafe(file, fallback = {}) {
+  try {
+    const raw = await fsP.readFile(file, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch {
+    return fallback;
+  }
+}
+async function writeJSONSafe(file, obj) {
+  const tmp = file + '.tmp';
+  await fsP.writeFile(tmp, JSON.stringify(obj, null, 2), 'utf8');
+  await fsP.rename(tmp, file);
+}
+
 // ✅ 명령어 정의
 const commands = [
   new SlashCommandBuilder()
@@ -76,6 +94,20 @@ const commands = [
 new SlashCommandBuilder()
   .setName('계정삭제')
   .setDescription('내 계정 데이터를 삭제합니다.'),
+
+new SlashCommandBuilder()
+
+  .setName('딥롤방연결')
+  .setDescription('내전 matchId에 딥롤 방 코드(roomCode) 연결')
+  .addStringOption(option =>
+    option.setName('matchid')
+      .setDescription('내전 matchId')
+      .setRequired(true))
+  .addStringOption(option =>
+    option.setName('roomcode')
+      .setDescription('딥롤 방 코드')
+      .setRequired(true))
+
 ];
 
 
@@ -215,6 +247,29 @@ if (commandName === '계정삭제') {
       }, 1000 * 60 * 40);
     }
   }
+
+// /딥롤방연결
+if (commandName === '딥롤방연결') {
+  const matchId = options.getString('matchid', true);
+  const roomCode = options.getString('roomcode', true);
+
+  try {
+    const map = await readJSONSafe(LINKS_PATH, {});
+    map[matchId] = { roomCode, updatedAt: Date.now() };
+    await writeJSONSafe(LINKS_PATH, map);
+
+    return interaction.reply({
+      content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`,
+      ephemeral: true
+    });
+  } catch (e) {
+    console.error('딥롤방연결 오류:', e);
+    return interaction.reply({
+      content: '❌ 연결 중 오류가 발생했어요.',
+      ephemeral: true
+    });
+  }
+}
 
   // 🎯 버튼 핸들러
   if (interaction.isButton()) {
