@@ -325,8 +325,7 @@ if (commandName === '딥롤방연결') {
       await message.delete().catch(() => {});
       return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
     }
-  }
-});
+  });
 
 // ✅ MMR 갱신 함수
 async function updateMMR(userId, result) {
