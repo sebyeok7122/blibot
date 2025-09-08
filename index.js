@@ -213,40 +213,47 @@ if (commandName === '계정삭제') {
       }
     }
 
-    // /내전
-    if (commandName === '내전') {
-      const startTime = options.getString('시간');
+// /내전
+if (commandName === '내전') {
+  const startTime = options.getString('시간');
 
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
+  const joinBtn = new ButtonBuilder()
+    .setCustomId('join_game')
+    .setLabel('✅ 참여')
+    .setStyle(ButtonStyle.Success);
 
-      const replyMsg = await interaction.reply({
-        content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-        components: [row],
-        fetchReply: true
+  const leaveBtn = new ButtonBuilder()
+    .setCustomId('leave_game')
+    .setLabel('❌ 취소')
+    .setStyle(ButtonStyle.Danger);
+
+  const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
+
+  const replyMsg = await interaction.reply({
+    content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
+    components: [row],
+    fetchReply: true
+  });
+
+  roomState.set(replyMsg.id, { members: [], last: new Set(), wait: new Set() });
+
+  // 40분 후 막판/대기 버튼 추가
+  setTimeout(async () => {
+    try {
+      const lateButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
+      );
+
+      await replyMsg.edit({
+        content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+        components: [row, lateButtons]
       });
-
-      roomState.set(replyMsg.id, { members: [], last: new Set(), wait: new Set() });
-
-      // 40분 후 막판/대기 버튼 추가
-      setTimeout(async () => {
-        try {
-          const lateButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
-          );
-
-          await replyMsg.edit({
-            content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-            components: [row, lateButtons]
-          });
-        } catch (err) {
-          console.error('막판/대기 버튼 추가 오류:', err);
-        }
-      }, 1000 * 60 * 40);
+    } catch (err) {
+      console.error('막판/대기 버튼 추가 오류:', err);
     }
-  }
+  }, 1000 * 60 * 40);
+}
 
 // /딥롤방연결
 if (commandName === '딥롤방연결') {
@@ -270,6 +277,7 @@ if (commandName === '딥롤방연결') {
     });
   }
 }
+
 
   // 🎯 버튼 핸들러
   if (interaction.isButton()) {
