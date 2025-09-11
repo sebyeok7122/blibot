@@ -1,0 +1,37 @@
+const ROOMS_PATH = path.join(__dirname, 'rooms.json');
+
+function saveRooms() {
+  const obj = {};
+  for (const [key, value] of roomState.entries()) {
+    obj[key] = {
+      members: value.members,
+      lanes: value.lanes,
+      tiers: value.tiers,
+      last: [...value.last],
+      wait: [...value.wait]
+    };
+  }
+  fs.writeFileSync(ROOMS_PATH, JSON.stringify(obj, null, 2));
+}
+
+function loadRooms() {
+  if (fs.existsSync(ROOMS_PATH)) {
+    const obj = JSON.parse(fs.readFileSync(ROOMS_PATH, 'utf8'));
+    for (const [key, value] of Object.entries(obj)) {
+      roomState.set(key, {
+        members: value.members,
+        lanes: value.lanes || {},
+        tiers: value.tiers || {},
+        last: new Set(value.last),
+        wait: new Set(value.wait)
+      });
+    }
+    console.log("✅ roomState 복원 완료:", roomState.size);
+  }
+}
+
+client.once('ready', () => {
+  loadRooms();
+  setInterval(saveRooms, 60 * 1000); // 1분마다 저장
+  console.log(`🤖 로그인 완료: ${client.user.tag}`);
+});
