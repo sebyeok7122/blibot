@@ -9,6 +9,7 @@ const {
   ActionRowBuilder, 
   ButtonBuilder, 
   ButtonStyle
+  StringSelectMenuBuilder 
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
