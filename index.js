@@ -8,8 +8,8 @@ const {
   SlashCommandBuilder,
   ActionRowBuilder, 
   ButtonBuilder, 
-  ButtonStyle
-  StringSelectMenuBuilder 
+  ButtonStyle,
+  StringSelectMenuBuilder
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
