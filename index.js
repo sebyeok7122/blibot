@@ -145,8 +145,19 @@ const roomState = new Map(); // messageId -> { members: string[], last: Set, wai
 
 // ✅ 메시지 렌더링 함수
 function renderContent(base, state) {
-  const { members, last, wait } = state;
-  const asList = ids => (ids.length ? ids.map(id => `<@${id}>`).join('\n') : '(없음)');
+  const { members, lanes, tiers, last, wait } = state;
+
+  const asList = ids => {
+    return ids.length
+      ? ids.map(id => {
+          const lane = lanes?.[id]?.join('/') || '';
+          const tier = tiers?.[id] || '';
+          const extra = (lane || tier) ? ` (${lane} ${tier})` : '';
+          return `<@${id}>${extra}`;
+        }).join('\n')
+      : '(없음)';
+  };
+
   const membersText = asList(members);
   const lastText = asList([...last]);
   const waitText = asList([...wait]);
@@ -239,12 +250,26 @@ if (commandName === '내전') {
     .setStyle(ButtonStyle.Danger);
 const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
 
-// 라인 선택
-const laneSelect = new StringSelectMenuBuilder()
-  .setCustomId('select_lane')
-  .setPlaceholder('주라인 / 부라인 선택')
+// 주라인 선택
+const mainLaneSelect = new StringSelectMenuBuilder()
+  .setCustomId('select_main_lane')
+  .setPlaceholder('주라인 선택')
   .setMinValues(1)
-  .setMaxValues(2)
+  .setMaxValues(5)
+  .addOptions(
+    { label: '탑', value: 'top' },
+    { label: '정글', value: 'jungle' },
+    { label: '미드', value: 'mid' },
+    { label: '원딜', value: 'adc' },
+    { label: '서폿', value: 'support' }
+  );
+
+// 부라인 선택
+const subLaneSelect = new StringSelectMenuBuilder()
+  .setCustomId('select_sub_lane')
+  .setPlaceholder('부라인 선택')
+  .setMinValues(1)
+  .setMaxValues(5)
   .addOptions(
     { label: '탑', value: 'top' },
     { label: '정글', value: 'jungle' },
