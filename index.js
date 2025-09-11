@@ -288,7 +288,8 @@ const replyMsg = await interaction.reply({
   content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
   components: [
     row,
-    new ActionRowBuilder().addComponents(laneSelect),
+    new ActionRowBuilder().addComponents(mainLaneSelect),
+    new ActionRowBuilder().addComponents(subLaneSelect),
     new ActionRowBuilder().addComponents(tierSelect)
   ],
   fetchReply: true
