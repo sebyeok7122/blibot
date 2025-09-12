@@ -328,11 +328,11 @@ if (interaction.isStringSelectMenu()) {
     });
   }
 }
-
-// ✅ 클라이언트 실행
+// 클라이언트 실행
 client.once('ready', () => {
   loadRooms();
   setInterval(saveRooms, 60 * 1000);
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
+
 client.login(token);
