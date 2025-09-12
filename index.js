@@ -350,7 +350,8 @@ client.on('interactionCreate', async (interaction) => {
       roomState.delete(key); await message.delete().catch(() => {}); saveRooms();
       return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
     }
-  }
+  } // ← interaction.isButton() 끝
+});  // ← client.on('interactionCreate') 끝
 
 // -------------------
 // 3) 선택 메뉴 핸들러
@@ -361,7 +362,6 @@ if (interaction.isStringSelectMenu()) {
   if (!roomState.has(key)) return;
   const state = roomState.get(key);
 
-  // 영어 → 한글 매핑
   const laneMap = {
     top: '탑',
     jungle: '정글',
@@ -370,24 +370,18 @@ if (interaction.isStringSelectMenu()) {
     support: '서폿'
   };
 
-  // 주/부 라인 선택
   if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
     const lanesKr = values.map(v => laneMap[v] || v);
     state.lanes[user.id] = lanesKr;
     saveRooms();
-
-    // components는 제거해서 초기화 방지
     return interaction.update({
       content: renderContent(message.content, state)
     });
   }
 
-  // 티어 선택
   if (customId === 'select_tier') {
     state.tiers[user.id] = values[0];
     saveRooms();
-
-    // components는 제거해서 초기화 방지
     return interaction.update({
       content: renderContent(message.content, state)
     });
@@ -400,4 +394,6 @@ client.once('ready', () => {
   setInterval(saveRooms, 60 * 1000);
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
+
 client.login(token);
+
