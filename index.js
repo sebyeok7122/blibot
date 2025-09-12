@@ -311,30 +311,28 @@ if (interaction.isStringSelectMenu()) {
     adc: '원딜',
     support: '서폿'
   };
-
-  // 주/부 라인 선택
- if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+// 주/부 라인 선택
+if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
   const prev = state.lanes[user.id] || [];
   state.lanes[user.id] = Array.from(new Set([...prev, ...values.map(v => v)]));
   saveRooms();
   return interaction.update({
     content: renderContent(message.content, state),
-    components: message.components // ✅ 이 줄이 메뉴 사라짐 방지!
+    components: message.components
   });
 }
 
-    // ⚡ 티어 선택 처리
-    if (customId === 'select_tier') {
-      state.tiers[user.id] = values[0];
-      saveRooms();
-      return interaction.update({
-        content: renderContent(message.content, state),
-        components: message.components
-      });
-    }
-  }
+// ⚡ 티어 선택 처리
+if (customId === 'select_tier') {
+  state.tiers[user.id] = values[0];
+  saveRooms();
+  return interaction.update({
+    content: renderContent(message.content, state),
+    components: message.components
+  });
+}
 
-}); // interactionCreate 끝
+}); // ✅ interactionCreate 끝
 
 // 로그인
 client.login(token);
