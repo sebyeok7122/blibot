@@ -319,7 +319,8 @@ if (interaction.isStringSelectMenu()) {
       components: message.components
     });
   }
-// 티어 선택
+
+// ⚡ 티어 선택 처리
 if (customId === 'select_tier') {
   state.tiers[user.id] = values[0];
   saveRooms();
@@ -329,12 +330,12 @@ if (customId === 'select_tier') {
   });
 }
 
-// ⬇️ ready 이벤트 + 자동 저장
+// ⚡ ready 이벤트
 client.once('ready', () => {
   loadRooms();
-  setInterval(saveRooms, 60 * 1000); // 1분마다 저장
+  setInterval(saveRooms, 60 * 1000); // 1분마다 자동 저장
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
 
-// 로그인
+// ⚡ 로그인
 client.login(token);
