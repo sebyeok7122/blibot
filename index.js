@@ -255,6 +255,7 @@ client.on('interactionCreate', async (interaction) => {
           console.error('막판/대기 버튼 추가 오류:', err);
         }
       }, 1000 * 60 * 40); // ✅ 40분 후에 메시지 수정
+    }
 
     // 딥롤방연결
     if (commandName === '딥롤방연결') {
