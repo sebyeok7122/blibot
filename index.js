@@ -316,16 +316,15 @@ if (interaction.isStringSelectMenu()) {
   };
 
   // 주/부 라인 선택
-  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    const prev = state.lanes[user.id] || [];
-    // 선택값 병합 (중복 제거)
-    state.lanes[user.id] = Array.from(new Set([...prev, ...values.map(v => v)]));
-    saveRooms();
-    return interaction.update({
-      content: renderContent(message.content, state),
-      components: message.components
-    });
-  }
+ if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+  const prev = state.lanes[user.id] || [];
+  state.lanes[user.id] = Array.from(new Set([...prev, ...values.map(v => v)]));
+  saveRooms();
+  return interaction.update({
+    content: renderContent(message.content, state),
+    components: message.components // ✅ 이 줄이 메뉴 사라짐 방지!
+  });
+}
 
     // ⚡ 티어 선택 처리
     if (customId === 'select_tier') {
