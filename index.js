@@ -389,6 +389,36 @@ if (commandName === '칼바람내전') {
   return updateMessage();
 }
 
+// 🎯 선택 메뉴 핸들러
+if (interaction.isStringSelectMenu()) {
+  const { customId, values, user, message } = interaction;
+  const key = message.id;
+
+  if (!roomState.has(key)) return;
+
+  const state = roomState.get(key);
+
+  // 라인 선택
+  if (customId === 'select_lane') {
+    state.lanes[user.id] = values; // 여러 개 선택 가능
+    saveRooms();
+    return interaction.reply({ 
+      content: `✅ ${user.username}님의 라인 선택: ${values.join(', ')}`, 
+      ephemeral: true 
+    });
+  }
+
+  // 티어 선택
+  if (customId === 'select_tier') {
+    state.tiers[user.id] = values[0]; // 하나만 선택
+    saveRooms();
+    return interaction.reply({ 
+      content: `✅ ${user.username}님의 티어 선택: ${values[0]}`, 
+      ephemeral: true 
+    });
+  }
+}
+
   if (commandName === '딥롤방연결') {
     const matchId = options.getString('matchid', true);
     const roomCode = options.getString('roomcode', true);
