@@ -291,28 +291,43 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // -------------------
-  // 3) 선택 메뉴 핸들러
-  // -------------------
-  if (interaction.isStringSelectMenu()) {
-    const { customId, values, user, message } = interaction;
-    const key = message.id;
-    if (!roomState.has(key)) return;
-    const state = roomState.get(key);
+// -------------------
+// 3) 선택 메뉴 핸들러
+// -------------------
+if (interaction.isStringSelectMenu()) {
+  const { customId, values, user, message } = interaction;
+  const key = message.id;
+  if (!roomState.has(key)) return;
+  const state = roomState.get(key);
 
-    if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-      state.lanes[user.id] = values;
-      saveRooms();
-      return interaction.update({ content: renderContent(message.content, state) }); // ✅ components 제거
-    }
+  const laneMap = {
+    top: '탑',
+    jungle: '정글',
+    mid: '미드',
+    adc: '원딜',
+    support: '서폿'
+  };
 
-    if (customId === 'select_tier') {
-      state.tiers[user.id] = values[0];
-      saveRooms();
-      return interaction.update({ content: renderContent(message.content, state) }); // ✅ components 제거
-    }
+  // 주/부 라인 선택
+  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+    state.lanes[user.id] = values.map(v => laneMap[v] || v);
+    saveRooms();
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components // 👈 메뉴/버튼 그대로 유지
+    });
   }
-});
+
+  // 티어 선택
+  if (customId === 'select_tier') {
+    state.tiers[user.id] = values[0];
+    saveRooms();
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components // 👈 메뉴/버튼 그대로 유지
+    });
+  }
+}
 
 // ✅ 클라이언트 실행
 client.once('ready', () => {
