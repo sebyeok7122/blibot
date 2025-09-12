@@ -388,27 +388,33 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // -------------------
-  // 3) 선택 메뉴 핸들러
-  // -------------------
-  if (interaction.isStringSelectMenu()) {
-    const { customId, values, user, message } = interaction;
-    const key = message.id;
-    if (!roomState.has(key)) return;
-    const state = roomState.get(key);
+// -------------------
+// 3) 선택 메뉴 핸들러
+// -------------------
+if (interaction.isStringSelectMenu()) {
+  const { customId, values, user, message } = interaction;
+  const key = message.id;
+  if (!roomState.has(key)) return;
+  const state = roomState.get(key);
 
-    if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-      state.lanes[user.id] = values;
-      saveRooms();
-      return interaction.update({ content: renderContent(message.content, state) });
-    }
-    if (customId === 'select_tier') {
-      state.tiers[user.id] = values[0];
-      saveRooms();
-      return interaction.update({ content: renderContent(message.content, state) });
-    }
+  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+    state.lanes[user.id] = values;
+    saveRooms();
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components
+    });
   }
-});
+
+  if (customId === 'select_tier') {
+    state.tiers[user.id] = values[0];
+    saveRooms();
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components
+    });
+  }
+}
 
 // ✅ 클라이언트 실행
 client.once('ready', () => {
