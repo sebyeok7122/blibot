@@ -324,15 +324,16 @@ if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
 }
 
 // ⚡ 티어 선택 처리
-if (customId === 'select_tier') {
-  state.tiers[user.id] = values[0];
-  saveRooms();
-  return interaction.update({
-    content: renderContent(message.content, state),
-    components: message.components
-  });
- }
-}); // ✅ interactionCreate 끝
+    if (customId === 'select_tier') {
+      state.tiers[user.id] = values[0];
+      saveRooms();
+      return interaction.update({
+        content: renderContent(message.content, state),
+        components: message.components
+      });
+    }
+  }
+});
 
 // 로그인
 client.login(token);
