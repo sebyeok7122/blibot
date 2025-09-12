@@ -331,8 +331,7 @@ if (customId === 'select_tier') {
     content: renderContent(message.content, state),
     components: message.components
   });
-}
-
+ }
 }); // ✅ interactionCreate 끝
 
 // 로그인
