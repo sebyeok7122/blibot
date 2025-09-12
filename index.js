@@ -30,12 +30,10 @@ const clientId = '1392425978265075772';
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
 const accountPath = path.join(__dirname, 'accounts.json');
+const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
 const ROOMS_PATH = path.join(__dirname, 'rooms.json');
 
-// ✅ 전역 상태
-const roomState = new Map();
-
-// ✅ JSON 저장/복원 함수
+// ✅ JSON 함수
 function loadAccounts() {
   if (fs.existsSync(accountPath)) {
     return JSON.parse(fs.readFileSync(accountPath, 'utf8'));
@@ -47,6 +45,24 @@ function saveAccounts(accounts) {
   fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
 }
 
+// ✅ deeplol_links.json 유틸
+const fsP = require('fs/promises');
+async function readJSONSafe(file, fallback = {}) {
+  try {
+    const raw = await fsP.readFile(file, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch {
+    return fallback;
+  }
+}
+async function writeJSONSafe(file, obj) {
+  const tmp = file + '.tmp';
+  await fsP.writeFile(tmp, JSON.stringify(obj, null, 2), 'utf8');
+  await fsP.rename(tmp, file);
+}
+
+// ✅ roomState 저장/복원
+const roomState = new Map(); 
 function saveRooms() {
   const obj = {};
   for (const [key, value] of roomState.entries()) {
@@ -63,8 +79,7 @@ function saveRooms() {
 function loadRooms() {
   if (fs.existsSync(ROOMS_PATH)) {
     try {
-      const raw = fs.readFileSync(ROOMS_PATH, 'utf8');
-      const obj = JSON.parse(raw || '{}');
+      const obj = JSON.parse(fs.readFileSync(ROOMS_PATH, 'utf8'));
       for (const [key, value] of Object.entries(obj)) {
         roomState.set(key, {
           members: value.members,
@@ -75,9 +90,8 @@ function loadRooms() {
         });
       }
       console.log("✅ roomState 복원 완료:", roomState.size);
-    } catch (err) {
-      console.error("❌ rooms.json 파싱 실패 → 초기화:", err.message);
-      fs.writeFileSync(ROOMS_PATH, '{}');
+    } catch (e) {
+      console.error("❌ rooms.json 파싱 오류:", e.message);
     }
   }
 }
@@ -106,6 +120,14 @@ const commands = [
         .setRequired(true)
     ),
   new SlashCommandBuilder()
+    .setName('내전')
+    .setDescription('내전을 모집합니다.')
+    .addStringOption(option =>
+      option.setName('시간')
+        .setDescription('내전 시작 시간')
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
     .setName('계정삭제')
     .setDescription('내 계정 데이터를 삭제합니다.'),
   new SlashCommandBuilder()
@@ -121,21 +143,13 @@ const commands = [
         .setRequired(true)
     ),
   new SlashCommandBuilder()
-    .setName('내전')
-    .setDescription('내전을 모집합니다.')
-    .addStringOption(option =>
-      option.setName('시간')
-        .setDescription('내전 시작 시간')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
     .setName('칼바람내전')
     .setDescription('칼바람 내전을 모집합니다.')
     .addStringOption(option =>
       option.setName('시간')
         .setDescription('내전 시작 시간')
         .setRequired(true)
-    ),
+    )
 ];
 
 // ✅ 명령어 등록
@@ -158,14 +172,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 // ✅ 메시지 렌더링 함수
 function renderContent(base, state) {
   const { members, lanes, tiers, last, wait } = state;
-
-  const laneMap = {
-    top: '탑',
-    jungle: '정글',
-    mid: '미드',
-    adc: '원딜',
-    support: '서폿'
-  };
+  const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
   const asList = ids => {
     return ids.length
@@ -191,41 +198,28 @@ function renderContent(base, state) {
   );
 }
 
-// ✅ interaction 핸들러
+// ✅ interaction 처리
 client.on('interactionCreate', async (interaction) => {
-  const { commandName, options, user } = interaction;
-  const userId = user?.id;
-
   // -------------------
-  // 1) 명령어 처리
+  // 1) 슬래시 명령어
   // -------------------
   if (interaction.isChatInputCommand()) {
+    const { commandName, options, user } = interaction;
+    const userId = user.id;
+
     // /계정등록
     if (commandName === '계정등록') {
       const riotNick = options.getString('라이엇닉네임');
       let accounts = loadAccounts();
       if (!accounts[userId]) {
-        accounts[userId] = { main: riotNick, alts: [], wins: 0, losses: 0, mmr: 1000, streak: 0, gamesPlayed: 0 };
+        accounts[userId] = {
+          main: riotNick, alts: [], wins: 0, losses: 0,
+          mmr: 1000, streak: 0, gamesPlayed: 0,
+        };
         saveAccounts(accounts);
         return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${riotNick}** 으로 등록되었습니다!`);
       } else {
-        return interaction.reply(`⚠️ 이미 등록됨! 현재 메인: **${accounts[userId].main}**`);
-      }
-    }
-
-    // /부캐등록
-    if (commandName === '부캐등록') {
-      const subNick = options.getString('부캐닉네임');
-      const mainNick = options.getString('메인닉네임');
-      let accounts = loadAccounts();
-      if (!accounts[userId]) return interaction.reply(`❌ 먼저 /계정등록 해주세요.`);
-      if (accounts[userId].main !== mainNick) return interaction.reply(`⚠️ 입력한 메인 닉네임 불일치! 현재: **${accounts[userId].main}**`);
-      if (!accounts[userId].alts.includes(subNick)) {
-        accounts[userId].alts.push(subNick);
-        saveAccounts(accounts);
-        return interaction.reply(`✅ 부캐 **${subNick}** 가 메인 **${mainNick}** 과 연결되었습니다!`);
-      } else {
-        return interaction.reply(`⚠️ 이미 등록된 부캐입니다: **${subNick}**`);
+        return interaction.reply(`⚠️ 이미 메인 계정을 등록하셨네요! 현재: **${accounts[userId].main}**`);
       }
     }
 
@@ -235,30 +229,36 @@ client.on('interactionCreate', async (interaction) => {
       if (accounts[userId]) {
         delete accounts[userId];
         saveAccounts(accounts);
-        return interaction.reply(`🗑️ <@${userId}> 계정 데이터 삭제됨!`);
+        return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
       } else {
-        return interaction.reply(`❌ 등록된 계정 없음.`);
+        return interaction.reply(`❌ 등록된 계정이 없습니다.`);
       }
     }
 
-    // /딥롤방연결
-    if (commandName === '딥롤방연결') {
-      const matchId = options.getString('matchid', true);
-      const roomCode = options.getString('roomcode', true);
-      try {
-        const map = fs.existsSync(LINKS_PATH) ? JSON.parse(fs.readFileSync(LINKS_PATH, 'utf8')) : {};
-        map[matchId] = { roomCode, updatedAt: Date.now() };
-        fs.writeFileSync(LINKS_PATH, JSON.stringify(map, null, 2));
-        return interaction.reply({ content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`, ephemeral: true });
-      } catch (e) {
-        console.error('딥롤방연결 오류:', e);
-        return interaction.reply({ content: '❌ 연결 중 오류 발생', ephemeral: true });
+    // /부캐등록
+    if (commandName === '부캐등록') {
+      const subNick = options.getString('부캐닉네임');
+      const mainNick = options.getString('메인닉네임');
+      let accounts = loadAccounts();
+
+      if (!accounts[userId]) return interaction.reply(`❌ 먼저 /계정등록 하세요.`);
+      if (accounts[userId].main !== mainNick)
+        return interaction.reply(`⚠️ 입력한 메인 닉네임이 다릅니다. 현재: **${accounts[userId].main}**`);
+
+      if (!accounts[userId].alts.includes(subNick)) {
+        accounts[userId].alts.push(subNick);
+        saveAccounts(accounts);
+        return interaction.reply(`✅ 부캐 **${subNick}** 가 메인 계정 **${mainNick}** 과 연결되었습니다!`);
+      } else {
+        return interaction.reply(`⚠️ 이미 등록된 부캐입니다: **${subNick}**`);
       }
     }
 
     // /내전
-    if (commandName === '내전') {
+    if (commandName === '내전' || commandName === '칼바람내전') {
       const startTime = options.getString('시간');
+      const isAram = commandName === '칼바람내전';
+
       const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
       const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
       const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
@@ -295,30 +295,50 @@ client.on('interactionCreate', async (interaction) => {
         .addOptions(['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t })));
 
       const replyMsg = await interaction.reply({
-        content: `**[𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-        components: [row, new ActionRowBuilder().addComponents(mainLaneSelect), new ActionRowBuilder().addComponents(subLaneSelect), new ActionRowBuilder().addComponents(tierSelect)],
+        content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
+        components: [
+          row,
+          new ActionRowBuilder().addComponents(mainLaneSelect),
+          new ActionRowBuilder().addComponents(subLaneSelect),
+          new ActionRowBuilder().addComponents(tierSelect)
+        ],
         fetchReply: true
       });
 
       roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
-      saveRooms();
+
+      setTimeout(async () => {
+        try {
+          const lateButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
+          );
+          await replyMsg.edit({
+            content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+            components: [row, lateButtons]
+          });
+        } catch (err) {
+          console.error('막판/대기 버튼 추가 오류:', err);
+        }
+      }, 1000 * 60 * 40);
     }
 
-    // /칼바람내전
-    if (commandName === '칼바람내전') {
-      const startTime = options.getString('시간');
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
-
-      const replyMsg = await interaction.reply({
-        content: `**[칼바람] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-        components: [row],
-        fetchReply: true
-      });
-
-      roomState.set(replyMsg.id, { members: [], last: new Set(), wait: new Set() });
-      saveRooms();
+    // /딥롤방연결
+    if (commandName === '딥롤방연결') {
+      const matchId = options.getString('matchid', true);
+      const roomCode = options.getString('roomcode', true);
+      try {
+        const map = await readJSONSafe(LINKS_PATH, {});
+        map[matchId] = { roomCode, updatedAt: Date.now() };
+        await writeJSONSafe(LINKS_PATH, map);
+        return interaction.reply({
+          content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`,
+          ephemeral: true
+        });
+      } catch (e) {
+        console.error('딥롤방연결 오류:', e);
+        return interaction.reply({ content: '❌ 연결 중 오류가 발생했어요.', ephemeral: true });
+      }
     }
   }
 
@@ -328,65 +348,67 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     const { customId, user, message } = interaction;
     const key = message.id;
+
     if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
     const state = roomState.get(key);
 
-    const updateMessage = () => interaction.update({ content: renderContent(message.content, state), components: message.components });
+    const updateMessage = () => interaction.update({
+      content: renderContent(message.content, state),
+      components: message.components
+    });
 
     if (customId === 'join_game') {
       if (!state.members.includes(user.id)) state.members.push(user.id);
-      saveRooms(); return updateMessage();
+      saveRooms();
+      return updateMessage();
     }
     if (customId === 'leave_game') {
       state.members = state.members.filter(id => id !== user.id);
       state.last.delete(user.id); state.wait.delete(user.id);
-      saveRooms(); return updateMessage();
+      saveRooms();
+      return updateMessage();
     }
-    if (customId === 'last_call') { state.last.add(user.id); state.wait.delete(user.id); saveRooms(); return updateMessage(); }
-    if (customId === 'wait') { state.wait.add(user.id); state.last.delete(user.id); saveRooms(); return updateMessage(); }
+    if (customId === 'last_call') {
+      state.last.add(user.id); state.wait.delete(user.id);
+      saveRooms();
+      return updateMessage();
+    }
+    if (customId === 'wait') {
+      state.wait.add(user.id); state.last.delete(user.id);
+      saveRooms();
+      return updateMessage();
+    }
     if (customId === 'cancel_match') {
       const hostId = message.interaction?.user?.id;
-      if (user.id !== hostId) return interaction.reply({ content: '⚠️ 진행자만 취소 가능', ephemeral: true });
-      roomState.delete(key); await message.delete().catch(() => {}); saveRooms();
+      if (user.id !== hostId) return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
+      roomState.delete(key);
+      await message.delete().catch(() => {});
+      saveRooms();
       return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
     }
-  } // ← interaction.isButton() 끝
-});  // ← client.on('interactionCreate') 끝
-
-// -------------------
-// 3) 선택 메뉴 핸들러
-// -------------------
-if (interaction.isStringSelectMenu()) {
-  const { customId, values, user, message } = interaction;
-  const key = message.id;
-  if (!roomState.has(key)) return;
-  const state = roomState.get(key);
-
-  const laneMap = {
-    top: '탑',
-    jungle: '정글',
-    mid: '미드',
-    adc: '원딜',
-    support: '서폿'
-  };
-
-  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    const lanesKr = values.map(v => laneMap[v] || v);
-    state.lanes[user.id] = lanesKr;
-    saveRooms();
-    return interaction.update({
-      content: renderContent(message.content, state)
-    });
   }
 
-  if (customId === 'select_tier') {
-    state.tiers[user.id] = values[0];
-    saveRooms();
-    return interaction.update({
-      content: renderContent(message.content, state)
-    });
+  // -------------------
+  // 3) 선택 메뉴 핸들러
+  // -------------------
+  if (interaction.isStringSelectMenu()) {
+    const { customId, values, user, message } = interaction;
+    const key = message.id;
+    if (!roomState.has(key)) return;
+    const state = roomState.get(key);
+
+    if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+      state.lanes[user.id] = values;
+      saveRooms();
+      return interaction.update({ content: renderContent(message.content, state) });
+    }
+    if (customId === 'select_tier') {
+      state.tiers[user.id] = values[0];
+      saveRooms();
+      return interaction.update({ content: renderContent(message.content, state) });
+    }
   }
-}
+});
 
 // ✅ 클라이언트 실행
 client.once('ready', () => {
@@ -394,6 +416,5 @@ client.once('ready', () => {
   setInterval(saveRooms, 60 * 1000);
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
-
 client.login(token);
 
