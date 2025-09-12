@@ -162,6 +162,13 @@ function renderContent(base, state) {
   );
 }
 
+// ready 이벤트
+client.once('ready', () => {
+  loadRooms();
+  setInterval(saveRooms, 60 * 1000); // 1분마다 자동 저장
+  console.log(`🤖 로그인 완료: ${client.user.tag}`);
+});
+
 // ✅ interaction 처리
 client.on('interactionCreate', async (interaction) => {
   // -------------------
@@ -320,22 +327,18 @@ if (interaction.isStringSelectMenu()) {
     });
   }
 
-// ⚡ 티어 선택 처리
-if (customId === 'select_tier') {
-  state.tiers[user.id] = values[0];
-  saveRooms();
-  return interaction.update({
-    content: renderContent(message.content, state),
-    components: message.components // 메뉴/버튼 그대로 유지
-  });
-}
+    // ⚡ 티어 선택 처리
+    if (customId === 'select_tier') {
+      state.tiers[user.id] = values[0];
+      saveRooms();
+      return interaction.update({
+        content: renderContent(message.content, state),
+        components: message.components
+      });
+    }
+  }
 
-// ⚡ ready 이벤트
-client.once('ready', () => {
-  loadRooms();
-  setInterval(saveRooms, 60 * 1000); // 1분마다 자동 저장
-  console.log(`🤖 로그인 완료: ${client.user.tag}`);
-});
+}); // interactionCreate 끝
 
-// ⚡ 로그인
+// 로그인
 client.login(token);
