@@ -319,25 +319,22 @@ if (interaction.isStringSelectMenu()) {
       components: message.components
     });
   }
-
-  // 티어 선택
-  if (customId === 'select_tier') {
-    state.tiers[user.id] = values[0];
-    saveRooms();
-    return interaction.update({
-      content: renderContent(message.content, state),
-      components: message.components
-    });
-  }
+// 티어 선택
+if (customId === 'select_tier') {
+  state.tiers[user.id] = values[0];
+  saveRooms();
+  return interaction.update({
+    content: renderContent(message.content, state),
+    components: message.components // 메뉴/버튼 그대로 유지
+  });
 }
 
-// -------------------
-// 4) 봇 준비 완료
-// -------------------
+// ⬇️ ready 이벤트 + 자동 저장
 client.once('ready', () => {
   loadRooms();
-  setInterval(saveRooms, 60 * 1000);
+  setInterval(saveRooms, 60 * 1000); // 1분마다 저장
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
 
+// 로그인
 client.login(token);
