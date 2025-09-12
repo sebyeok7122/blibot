@@ -245,19 +245,20 @@ client.on('interactionCreate', async (interaction) => {
 
       roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
-      setTimeout(async () => {
-        try {
-          const lateButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('last_call').setLabel('🔥 막판').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('wait').setLabel('⏳ 대기').setStyle(ButtonStyle.Secondary)
-          );
-          await replyMsg.edit({
-            content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-            components: [row, lateButtons]
-          });
-        } catch (err) { console.error('막판/대기 버튼 추가 오류:', err); }
-      }, 1000 * 60 * 40);
-    }
+setTimeout(async () => {
+  try {
+    await replyMsg.edit({
+      content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+      components: [
+        ...selectMenus,
+        row,
+        lateButtons
+      ]
+    });
+  } catch (err) {
+    console.error('막판/대기 버튼 추가 오류:', err);
+  }
+}, 1000 * 60 * 40); // ✅ 여기는 타이머 돌아도록
 
     // 딥롤방연결
     if (commandName === '딥롤방연결') {
