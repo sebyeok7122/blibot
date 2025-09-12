@@ -310,11 +310,14 @@ if (interaction.isStringSelectMenu()) {
 
   // 주/부 라인 선택
   if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    state.lanes[user.id] = values.map(v => laneMap[v] || v);
+    // 기존 값 가져오기 (없으면 빈 배열)
+    const prev = state.lanes[user.id] || [];
+    // 선택값 병합 (중복 제거)
+    state.lanes[user.id] = Array.from(new Set([...prev, ...values.map(v => laneMap[v] || v)]));
     saveRooms();
     return interaction.update({
       content: renderContent(message.content, state),
-      components: message.components // 👈 메뉴/버튼 그대로 유지
+      components: message.components // 메뉴/버튼 그대로 유지
     });
   }
 
@@ -324,15 +327,14 @@ if (interaction.isStringSelectMenu()) {
     saveRooms();
     return interaction.update({
       content: renderContent(message.content, state),
-      components: message.components // 👈 메뉴/버튼 그대로 유지
+      components: message.components // 메뉴/버튼 그대로 유지
     });
   }
 }
-// 클라이언트 실행
+
 client.once('ready', () => {
   loadRooms();
   setInterval(saveRooms, 60 * 1000);
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
 });
-
 client.login(token);
