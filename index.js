@@ -376,9 +376,9 @@ if (interaction.isStringSelectMenu()) {
     state.lanes[user.id] = lanesKr;
     saveRooms();
 
+    // components는 제거해서 초기화 방지
     return interaction.update({
       content: renderContent(message.content, state)
-      // ❌ components 제거 → 선택값 초기화 방지
     });
   }
 
@@ -387,13 +387,12 @@ if (interaction.isStringSelectMenu()) {
     state.tiers[user.id] = values[0];
     saveRooms();
 
+    // components는 제거해서 초기화 방지
     return interaction.update({
       content: renderContent(message.content, state)
-      // ❌ components 제거
     });
   }
 }
-
 
 // ✅ 클라이언트 실행
 client.once('ready', () => {
