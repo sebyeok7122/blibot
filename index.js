@@ -298,17 +298,23 @@ if (commandName === '내전시간변경') {
 
       roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
-       setTimeout(async () => {
-         try {
-           await replyMsg.edit({
-           content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-           components: replyMsg.components // ✅ 여기 수정!
-           });
-          } catch (err) {
-         console.error('막판/대기 버튼 추가 오류:', err);
-         }
-        }, 1000 * 60 * 40); // 40분 뒤 실행
+    setTimeout(async () => {
+      try {
+        await replyMsg.edit({
+         content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+          components: [
+           ...replyMsg.components, // 기존 버튼 유지
+          new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('last_call').setLabel('막판').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('wait').setLabel('대기').setStyle(ButtonStyle.Secondary)
+        )
+      ]
+    });
+    } catch (err) {
+      console.error('막판/대기 버튼 추가 오류:', err);
     }
+   }, 1000 * 5); // 테스트용
+ }
 
     // 딥롤방연결
     if (commandName === '딥롤방연결') {
