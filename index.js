@@ -164,10 +164,15 @@ function renderContent(base, state) {
       : '(없음)';
   };
 
-  // ✅ 참여자 번호 매기기
-  const membersText = members.length
-    ? members.map((id, i) => `${i + 1}. <@${id}>`).join('\n')
-    : '(없음)';
+// ✅ 참여자 번호 매기기 + 라인/티어 표시
+const membersText = members.length
+  ? members.map((id, i) => {
+      const lane = lanes?.[id]?.map(v => laneMap[v] || v).join('/') || '';
+      const tier = tiers?.[id] || '';
+      const extra = (lane || tier) ? ` (${lane} ${tier})` : '';
+      return `${i + 1}. <@${id}>${extra}`;
+    }).join('\n')
+  : '(없음)';
 
   // ✅ 멘트 추가
   let extraNote = '';
