@@ -164,25 +164,30 @@ function renderContent(base, state) {
       : '(없음)';
   };
 
-  const membersText = asList(members);
+  // ✅ 참여자 번호 매기기
+  const membersText = members.length
+    ? members.map((id, i) => `${i + 1}. <@${id}>`).join('\n')
+    : '(없음)';
+
+  // ✅ 멘트 추가
+  let extraNote = '';
+  if (members.length >= 11 && members.length <= 19) {
+    extraNote = '\n\n🍀 11번부터는 대기로 넘어갑니다 🍀';
+  } else if (members.length === 20) {
+    extraNote = '\n\n🍀 20명이 되면 자동으로 2팀으로 나뉩니다 🍀';
+  }
+
   const lastText = asList([...last]);
   const waitText = asList([...wait]);
 
   const head = base.split('\n\n참여자:')[0];
   return (
     `${head}\n\n` +
-    `참여자:\n${membersText}\n\n` +
+    `참여자:\n${membersText}${extraNote}\n\n` +
     `❌ 막판:\n${lastText}\n\n` +
     `⭕ 대기:\n${waitText}`
   );
 }
-
-// ready 이벤트
-client.once('ready', () => {
-  loadRooms();
-  setInterval(saveRooms, 60 * 1000); // 1분마다 자동 저장
-  console.log(`🤖 로그인 완료: ${client.user.tag}`);
-});
 
 // ✅ interaction 처리
 client.on('interactionCreate', async (interaction) => {
@@ -356,12 +361,11 @@ if (interaction.isButton()) {
 
     return `참여자:\n${memberList}${extraNote}`;
   };
-
-  const updateMessage = () => 
+    const updateMessage = () => 
     interaction.update({ 
-      content: renderContent(message.content, state) + '\n\n' + renderMembers(), 
-      components: message.components 
-    });
+    content: renderContent(message.content, state), 
+    components: message.components 
+  });
 
   if (customId === 'join_game') { 
     if (!state.members.includes(user.id)) state.members.push(user.id); 
