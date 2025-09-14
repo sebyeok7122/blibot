@@ -341,12 +341,32 @@ if (interaction.isButton()) {
   if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
   const state = roomState.get(key);
 
-  const updateMessage = () => interaction.update({ content: renderContent(message.content, state), components: message.components });
+  // 참여자 목록을 다시 렌더링하는 함수
+  const renderMembers = () => {
+    const memberList = state.members
+      .map((id, i) => `${i + 1}. <@${id}>`)
+      .join('\n');
+
+    let extraNote = '';
+    if (state.members.length >= 11 && state.members.length <= 19) {
+      extraNote = '\n\n🍀 11번부터는 대기로 넘어갑니다 🍀';
+    } else if (state.members.length === 20) {
+      extraNote = '\n\n🍀 20명이 되면 자동으로 2팀으로 나뉩니다 🍀';
+    }
+
+    return `참여자:\n${memberList}${extraNote}`;
+  };
+
+  const updateMessage = () => 
+    interaction.update({ 
+      content: renderContent(message.content, state) + '\n\n' + renderMembers(), 
+      components: message.components 
+    });
 
   if (customId === 'join_game') { 
     if (!state.members.includes(user.id)) state.members.push(user.id); 
     saveRooms(); 
-    backupRooms(); // ✅ 참여 시 백업
+    backupRooms(state); // ✅ 참여 시 백업
     return updateMessage(); 
   }
 
@@ -355,7 +375,7 @@ if (interaction.isButton()) {
     state.last.delete(user.id); 
     state.wait.delete(user.id); 
     saveRooms(); 
-    backupRooms(); // ✅ 취소 시 백업
+    backupRooms(state); // ✅ 취소 시 백업
     return updateMessage(); 
   }
 
@@ -363,7 +383,7 @@ if (interaction.isButton()) {
     state.last.add(user.id); 
     state.wait.delete(user.id); 
     saveRooms(); 
-    backupRooms(); // ✅ 막판 버튼 시 백업
+    backupRooms(state); // ✅ 막판 버튼 시 백업
     return updateMessage(); 
   }
 
@@ -371,7 +391,7 @@ if (interaction.isButton()) {
     state.wait.add(user.id); 
     state.last.delete(user.id); 
     saveRooms(); 
-    backupRooms(); // ✅ 대기 버튼 시 백업
+    backupRooms(state); // ✅ 대기 버튼 시 백업
     return updateMessage(); 
   }
 
@@ -382,7 +402,7 @@ if (interaction.isButton()) {
     roomState.delete(key); 
     await message.delete().catch(() => {}); 
     saveRooms(); 
-    backupRooms(); // ✅ 모집 취소 시 백업
+    backupRooms(state); // ✅ 모집 취소 시 백업
     return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
   }
 }
