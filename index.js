@@ -14,6 +14,7 @@ const {
 const fs = require('fs');
 const path = require('path');
 const fsP = require('fs/promises');
+const backupRooms = require('./backupRooms');
 
 // ✅ 클라이언트 생성
 const client = new Client({
@@ -171,6 +172,7 @@ client.once('ready', () => {
 
 // ✅ interaction 처리
 client.on('interactionCreate', async (interaction) => {
+
   // -------------------
   // 1) 슬래시 명령어
   // -------------------
@@ -211,6 +213,25 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply(`✅ 부캐 **${subNick}** 연결 완료!`);
       } else return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
     }
+   
+   // 내전 시간 변경 ✅
+   if (commandName === '내전시간변경') {
+      const allowedRoles = ['1411424227457892412', '689438958140260361', '1415895023102197830'];
+
+   // 권한 체크
+   if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+      return interaction.reply({
+      content: ' 내전 시간은 운영진 또는 도우미 에게 부탁해주세요 🛎',
+      ephemeral: true
+    });
+  }
+
+  // 권한 통과 ✅
+  const newTime = options.getString('시간');
+
+  // TODO: 현재 내전 메시지 찾아서 시간 수정 로직
+  await interaction.reply(`내전 시작 시간이 **${newTime}**(으)로 수정되었습니다!`);
+}
 
     // 내전 & 칼바람내전
     if (commandName === '내전' || commandName === '칼바람내전') {
@@ -245,16 +266,16 @@ client.on('interactionCreate', async (interaction) => {
 
       roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
-      setTimeout(async () => {
-        try {
-          await replyMsg.edit({
-            content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-            components: message.components // 기존 컴포넌트 그대로 유지
-          });
-        } catch (err) {
-          console.error('막판/대기 버튼 추가 오류:', err);
-        }
-      }, 1000 * 60 * 40); // ✅ 40분 후에 메시지 수정
+       setTimeout(async () => {
+         try {
+           await replyMsg.edit({
+           content: replyMsg.content + '\n\n 🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
+           components: replyMsg.components // ✅ 여기 수정!
+           });
+          } catch (err) {
+         console.error('막판/대기 버튼 추가 오류:', err);
+         }
+        }, 1000 * 60 * 40); // 40분 뒤 실행
     }
 
     // 딥롤방연결
@@ -273,28 +294,60 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // -------------------
-  // 2) 버튼 핸들러
-  // -------------------
-  if (interaction.isButton()) {
-    const { customId, user, message } = interaction;
-    const key = message.id;
-    if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
-    const state = roomState.get(key);
+// -------------------
+// 2) 버튼 핸들러
+// -------------------
+if (interaction.isButton()) {
+  const { customId, user, message } = interaction;
+  const key = message.id;
+  if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+  const state = roomState.get(key);
 
-    const updateMessage = () => interaction.update({ content: renderContent(message.content, state), components: message.components });
+  const updateMessage = () => interaction.update({ content: renderContent(message.content, state), components: message.components });
 
-    if (customId === 'join_game') { if (!state.members.includes(user.id)) state.members.push(user.id); saveRooms(); return updateMessage(); }
-    if (customId === 'leave_game') { state.members = state.members.filter(id => id !== user.id); state.last.delete(user.id); state.wait.delete(user.id); saveRooms(); return updateMessage(); }
-    if (customId === 'last_call') { state.last.add(user.id); state.wait.delete(user.id); saveRooms(); return updateMessage(); }
-    if (customId === 'wait') { state.wait.add(user.id); state.last.delete(user.id); saveRooms(); return updateMessage(); }
-    if (customId === 'cancel_match') {
-      const hostId = message.interaction?.user?.id;
-      if (user.id !== hostId) return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
-      roomState.delete(key); await message.delete().catch(() => {}); saveRooms();
-      return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
-    }
+  if (customId === 'join_game') { 
+    if (!state.members.includes(user.id)) state.members.push(user.id); 
+    saveRooms(); 
+    backupRooms(); // ✅ 참여 시 백업
+    return updateMessage(); 
   }
+
+  if (customId === 'leave_game') { 
+    state.members = state.members.filter(id => id !== user.id); 
+    state.last.delete(user.id); 
+    state.wait.delete(user.id); 
+    saveRooms(); 
+    backupRooms(); // ✅ 취소 시 백업
+    return updateMessage(); 
+  }
+
+  if (customId === 'last_call') { 
+    state.last.add(user.id); 
+    state.wait.delete(user.id); 
+    saveRooms(); 
+    backupRooms(); // ✅ 막판 버튼 시 백업
+    return updateMessage(); 
+  }
+
+  if (customId === 'wait') { 
+    state.wait.add(user.id); 
+    state.last.delete(user.id); 
+    saveRooms(); 
+    backupRooms(); // ✅ 대기 버튼 시 백업
+    return updateMessage(); 
+  }
+
+  if (customId === 'cancel_match') {
+    const hostId = message.interaction?.user?.id;
+    if (user.id !== hostId) 
+      return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
+    roomState.delete(key); 
+    await message.delete().catch(() => {}); 
+    saveRooms(); 
+    backupRooms(); // ✅ 모집 취소 시 백업
+    return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
+  }
+}
 
 // -------------------
 // 3) 선택 메뉴 핸들러
@@ -312,6 +365,7 @@ if (interaction.isStringSelectMenu()) {
     adc: '원딜',
     support: '서폿'
   };
+
 // 주/부 라인 선택
 if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
   const prev = state.lanes[user.id] || [];
