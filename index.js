@@ -97,35 +97,41 @@ const commands = [
     .setName('계정등록')
     .setDescription('메인 계정을 등록합니다.')
     .addStringOption(o => o.setName('라이엇닉네임').setDescription('라이엇 닉네임#태그').setRequired(true)),
+
   new SlashCommandBuilder()
     .setName('부캐등록')
     .setDescription('부캐를 메인 계정과 연결합니다.')
     .addStringOption(o => o.setName('부캐닉네임').setDescription('부캐 닉네임').setRequired(true))
     .addStringOption(o => o.setName('메인닉네임').setDescription('메인 계정 닉네임').setRequired(true)),
+
   new SlashCommandBuilder()
     .setName('내전')
     .setDescription('내전을 모집합니다.')
     .addStringOption(o => o.setName('시간').setDescription('내전 시작 시간').setRequired(true)),
+
   new SlashCommandBuilder()
     .setName('칼바람내전')
     .setDescription('칼바람 내전을 모집합니다.')
     .addStringOption(o => o.setName('시간').setDescription('내전 시작 시간').setRequired(true)),
+
   new SlashCommandBuilder()
     .setName('계정삭제')
     .setDescription('내 계정 데이터를 삭제합니다.'),
+
   new SlashCommandBuilder()
     .setName('딥롤방연결')
     .setDescription('내전 matchId에 딥롤 방 코드(roomCode) 연결')
     .addStringOption(o => o.setName('matchid').setDescription('내전 matchId').setRequired(true))
-    .addStringOption(o => o.setName('roomcode').setDescription('딥롤 방 코드').setRequired(true))
-new SlashCommandBuilder()
-  .setName('내전시간변경')
-  .setDescription('현재 내전 시간을 수정합니다 (운영진/관리자/도우미 전용)')
-  .addStringOption(o =>
-    o.setName('시간')
-      .setDescription('내전 시작 시간을 수정할 새로운 시간')
-      .setRequired(true)
-  ),
+    .addStringOption(o => o.setName('roomcode').setDescription('딥롤 방 코드').setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('내전시간변경')
+    .setDescription('현재 내전 시간을 수정합니다 (운영진/관리자/도우미 전용)')
+    .addStringOption(o =>
+      o.setName('시간')
+        .setDescription('내전 시작 시간을 수정할 새로운 시간')
+        .setRequired(true)
+    ),
 ];
 
 // ✅ 명령어 등록
