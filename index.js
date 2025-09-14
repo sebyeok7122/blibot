@@ -179,7 +179,7 @@ const membersText = members.length
   if (members.length >= 11 && members.length <= 19) {
     extraNote = '\n\n🍀 11번부터는 대기로 넘어갑니다 🍀';
   } else if (members.length === 20) {
-    extraNote = '\n\n🍀 20명이 되면 자동으로 2팀으로 나뉩니다 🍀';
+    extraNote = '\n\n🍀 인원이 20명 되어 2팀으로 나뉘어 게임이 진행됩니다 🍀';
   }
 
   const lastText = asList([...last]);
