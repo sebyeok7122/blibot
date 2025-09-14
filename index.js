@@ -118,6 +118,14 @@ const commands = [
     .setDescription('내전 matchId에 딥롤 방 코드(roomCode) 연결')
     .addStringOption(o => o.setName('matchid').setDescription('내전 matchId').setRequired(true))
     .addStringOption(o => o.setName('roomcode').setDescription('딥롤 방 코드').setRequired(true))
+new SlashCommandBuilder()
+  .setName('내전시간변경')
+  .setDescription('현재 내전 시간을 수정합니다 (운영진/관리자/도우미 전용)')
+  .addStringOption(o =>
+    o.setName('시간')
+      .setDescription('내전 시작 시간을 수정할 새로운 시간')
+      .setRequired(true)
+  ),
 ];
 
 // ✅ 명령어 등록
