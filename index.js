@@ -228,14 +228,14 @@ client.on('interactionCreate', async (interaction) => {
       } else return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
     }
    
-   // 내전 시간 변경 ✅
-   if (commandName === '내전시간변경') {
-      const allowedRoles = ['1411424227457892412', '689438958140260361', '1415895023102197830'];
+ // 내전 시간 변경 ✅
+if (commandName === '내전시간변경') {
+  const allowedRoles = ['1411424227457892412', '689438958140260361', '1415895023102197830'];
 
-   // 권한 체크
-   if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-      return interaction.reply({
-      content: ' 내전 시간은 운영진 또는 도우미 에게 부탁해주세요 🛎',
+  // 권한 체크
+  if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+    return interaction.reply({
+      content: '내전 시간은 운영진 또는 도우미에게 부탁해주세요 🛎',
       ephemeral: true
     });
   }
@@ -243,8 +243,26 @@ client.on('interactionCreate', async (interaction) => {
   // 권한 통과 ✅
   const newTime = options.getString('시간');
 
-  // TODO: 현재 내전 메시지 찾아서 시간 수정 로직
-  await interaction.reply(`내전 시작 시간이 **${newTime}**(으)로 수정되었습니다!`);
+  // 현재 채널에서 내전 모집 메시지 찾기
+  const channel = interaction.channel;
+  const messages = await channel.messages.fetch({ limit: 20 }); // 최근 20개만 확인
+  const recruitMsg = messages.find(m =>
+    m.author.id === interaction.client.user.id &&
+    m.content.includes('내전이 시작되었어요')
+  );
+
+  if (recruitMsg) {
+    // 본문에서 "🕒 시작: ..." 부분 교체
+    const updated = recruitMsg.content.replace(/🕒 시작: .*/, `🕒 시작: ${newTime}`);
+
+    await recruitMsg.edit({ content: updated });
+    await interaction.reply(`✅ 내전 시작 시간이 **${newTime}**(으)로 수정되었습니다!`);
+  } else {
+    await interaction.reply({
+      content: '⚠️ 수정할 내전 메시지를 찾을 수 없어요.',
+      ephemeral: true
+    });
+  }
 }
 
     // 내전 & 칼바람내전
