@@ -139,18 +139,19 @@ function renderContent(base, state) {
   const { members, lanes, tiers, last } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-  // 참여자 목록
-  const membersText = members.length
-    ? members.map((id, i) => {
-        const laneInfo = lanes?.[id] || { main: null, sub: null };
-        const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
-        const subLane  = laneInfo.sub ? laneMap[laneInfo.sub]   : '없음';
-        const tier     = tiers?.[id] || '없음';
+// 참여자 목록
+     const membersText = members.length
+        ? members.map((id, i) => {
+        const laneInfo = lanes?.[id] || { main: null, sub: [] };
+       const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
+      const subLane  = laneInfo.sub?.length
+     ? laneInfo.sub.map(val => laneMap[val]).join(', ')
+   : '없음';
+ const tier     = tiers?.[id] || '없음';
 
-        // ⛔ 이름 옆 표시 제거
-        return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
-      }).join('\n')
-    : '(없음)';
+      return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
+    }).join('\n')
+  : '(없음)';
 
   // ✅ 멘트 추가
   let extraNote = '';
@@ -506,20 +507,21 @@ if (interaction.isStringSelectMenu()) {
                 default: state.lanes[user.id]?.main === val
               }))
             )
-        ),
-        // 부 라인
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_sub_lane')
-            .setPlaceholder('부 라인을 선택하세요')
-            .addOptions(
-              Object.entries(laneMap).map(([val, label]) => ({
-                label,
-                value: val,
-                default: state.lanes[user.id]?.sub === val
-              }))
-            )
-        ),
+        ),// 부 라인 (다중 선택 지원)
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_sub_lane')
+          .setPlaceholder('부 라인을 선택하세요')
+          .setMinValues(1)
+          .setMaxValues(5) // ✅ 여러 개 선택 가능
+          .addOptions(
+            Object.entries(laneMap).map(([val, label]) => ({
+              label,
+              value: val,
+              default: state.lanes[user.id]?.sub?.includes(val)
+            }))
+          )
+      ),
         // ✅ 티어 박스도 항상 유지
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
