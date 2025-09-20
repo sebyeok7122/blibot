@@ -153,16 +153,17 @@ function renderContent(base, state) {
   const { members, lanes, tiers, last, wait } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-  const asList = ids => {
-    return ids.length
-      ? ids.map(id => {
-          const lane = lanes?.[id]?.map(v => laneMap[v] || v).join('/') || '';
-          const tier = tiers?.[id] || '';
-          const extra = (lane || tier) ? ` (${lane} ${tier})` : '';
-          return `<@${id}>${extra}`;
-        }).join('\n')
-      : '(없음)';
-  };
+ const asList = ids => {
+   return ids.length
+     ? ids.map(id => {
+        const mainLane = lanes?.[id]?.main ? laneMap[lanes[id].main] : '없음';
+        const subLane  = lanes?.[id]?.sub ? laneMap[lanes[id].sub]   : '없음';
+        const tier     = tiers?.[id] || '없음';
+
+        return `<@${id}> (주라인: ${mainLane} / 부라인: ${subLane} / 14~15최고 티어: ${tier})`;
+      }).join('\n')
+    : '(없음)';
+};
 
 // ✅ 참여자 번호 매기기 + 라인/티어 표시
 const membersText = members.length
@@ -433,28 +434,83 @@ if (interaction.isStringSelectMenu()) {
     support: '서폿'
   };
 
-// 주/부 라인 선택
-if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-  const prev = state.lanes[user.id] || [];
-  state.lanes[user.id] = Array.from(new Set([...prev, ...values.map(v => v)]));
-  saveRooms();
-  return interaction.update({
-    content: renderContent(message.content, state),
-    components: message.components
-  });
-}
-
-// ⚡ 티어 선택 처리
-    if (customId === 'select_tier') {
-      state.tiers[user.id] = values[0];
-      saveRooms();
-      return interaction.update({
-        content: renderContent(message.content, state),
-        components: message.components
-      });
+  // 주/부 라인 선택
+  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+    // 저장
+    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
+    if (customId === 'select_main_lane') {
+      state.lanes[user.id].main = values[0];
+    } else {
+      state.lanes[user.id].sub = values[0];
     }
+    saveRooms();
+
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: [
+
+        // 주 라인 선택 메뉴
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_main_lane')
+            .setPlaceholder('주 라인을 선택하세요')
+            .addOptions(
+              Object.entries(laneMap).map(([val, label]) => ({
+                label,
+                value: val,
+                default: state.lanes[user.id]?.main === val
+              }))
+            )
+        ),
+        // 부 라인 선택 메뉴
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_sub_lane')
+            .setPlaceholder('부 라인을 선택하세요')
+            .addOptions(
+              Object.entries(laneMap).map(([val, label]) => ({
+                label,
+                value: val,
+                default: state.lanes[user.id]?.sub === val
+              }))
+            )
+        )
+      ]
+    });
   }
-});
+
+  // ⚡ 티어 선택 처리
+  if (customId === 'select_tier') {
+    state.tiers[user.id] = values[0];
+    saveRooms();
+
+    const tierOptions = [
+      { label: '브론즈', value: 'bronze' },
+      { label: '실버', value: 'silver' },
+      { label: '골드', value: 'gold' },
+      { label: '플래티넘', value: 'platinum' },
+      { label: '다이아', value: 'diamond' },
+      { label: '14~15최고 티어', value: 'p' }
+    ];
+
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_tier')
+            .setPlaceholder('티어를 선택하세요')
+            .addOptions(
+              tierOptions.map(opt => ({
+                ...opt,
+                default: state.tiers[user.id] === opt.value
+              }))
+            )
+        )
+      ]
+    });
+  }
+}
 
 // 로그인
 client.login(token);
