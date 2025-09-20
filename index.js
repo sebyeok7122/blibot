@@ -280,8 +280,8 @@ if (commandName === '내전시간변경') {
 if (commandName === '내전' || commandName === '칼바람내전') {
   // ✅ 관리자 + 도우미 권한 체크
   const allowedRoles = [
-    '689438958140260361',
-    '1415895023102197830'
+    '689438958140260361', // 관리자 역할 ID
+    '1415895023102197830' // 도우미 역할 ID
   ];
 
   if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
@@ -309,7 +309,7 @@ if (commandName === '내전' || commandName === '칼바람내전') {
     .setLabel('⛔ 막판')
     .setStyle(ButtonStyle.Primary);
 
-  // ✅ 대기 버튼 제외 → 내전참여 / 내전취소 / 막판만
+  // ✅ 버튼: 참여 / 취소 / 막판
   const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
   const mainLaneSelect = new StringSelectMenuBuilder()
@@ -339,7 +339,9 @@ if (commandName === '내전' || commandName === '칼바람내전') {
   const tierSelect = new StringSelectMenuBuilder()
     .setCustomId('select_tier')
     .setPlaceholder('최고 티어 선택')
-    .addOptions(['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t })));
+    .addOptions(
+      ['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t }))
+    );
 
   const replyMsg = await interaction.reply({
     content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
@@ -353,26 +355,27 @@ if (commandName === '내전' || commandName === '칼바람내전') {
   });
 
   roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
-}
 
+  // ✅ 40분 뒤 알림 & 막판 버튼 강조
   setTimeout(async () => {
     try {
       await replyMsg.edit({
-        content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 마지막 참여 여부(막판)를 선택해주세요..',
+        content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 마지막 참여 여부(막판)를 선택해주세요.',
         components: [
-          ...replyMsg.components, // 기존 버튼 유지
+          ...replyMsg.components,
           new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('last_call').setLabel('막판').setStyle(ButtonStyle.Primary)
-            // ⏳ 대기 버튼 제거!
+            new ButtonBuilder()
+              .setCustomId('last_call')
+              .setLabel('⛔ 막판')
+              .setStyle(ButtonStyle.Primary)
           )
         ]
       });
     } catch (err) {
-      console.error('막판/대기 버튼 추가 오류:', err);
+      console.error('막판 버튼 추가 오류:', err);
     }
   }, 1000 * 60 * 40); // 40분 뒤 실행
 }
-
 
     // 딥롤방연결
     if (commandName === '딥롤방연결') {
