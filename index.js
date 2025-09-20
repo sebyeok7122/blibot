@@ -136,7 +136,7 @@ const commands = [
 
 // ✅ 메시지 렌더링 함수
 function renderContent(base, state) {
-  const { members, lanes, tiers, last, wait } = state;
+  const { members, lanes, tiers, last } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
   // 참여자 목록
@@ -147,7 +147,8 @@ function renderContent(base, state) {
         const subLane  = laneInfo.sub ? laneMap[laneInfo.sub]   : '없음';
         const tier     = tiers?.[id] || '없음';
 
-        return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${isLast}`;
+        // ⛔ 이름 옆 표시 제거
+        return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
       }).join('\n')
     : '(없음)';
 
@@ -157,15 +158,15 @@ function renderContent(base, state) {
     extraNote = '\n\n🍀 내전 인원 10명 넘어갈시 인원 10의 배수만큼 동시 진행됩니다 나머지는 내전 시작 이후 대기자로 넘어가게 됩니다 ! 🍀';
   }
 
+  // 막판자 블럭
   const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
-  const waitText = wait?.size ? [...wait].map(id => `<@${id}>`).join(', ') : '(없음)';
 
   const head = base.split('\n\n참여자:')[0];
 
-   return (
-     `${head}\n\n` +
-     `참여자:\n${membersText}${extraNote}\n\n` +
-     `❌ 막판:\n${lastText}`
+  return (
+    `${head}\n\n` +
+    `참여자:\n${membersText}${extraNote}\n\n` +
+    `❌ 막판:\n${lastText}`
   );
 }
 
