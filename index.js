@@ -310,12 +310,24 @@ if (commandName === '내전' || commandName === '칼바람내전') {
       { label: '서폿', value: 'support' }
     );
 
-  const tierSelect = new StringSelectMenuBuilder()
-    .setCustomId('select_tier')
-    .setPlaceholder('14~15 최고티어')
-    .addOptions(
-      ['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t }))
-    );
+const tierSelect = new StringSelectMenuBuilder()
+  .setCustomId('select_tier')
+  .setPlaceholder('14~15 최고티어')
+  .addOptions(
+    [
+      { label: '아이언', value: 'I' },
+      { label: '브론즈', value: 'B' },
+      { label: '실버', value: 'S' },
+      { label: '골드', value: 'G' },
+      { label: '플래티넘', value: 'P' },
+      { label: '에메랄드', value: 'E' },
+      { label: '다이아', value: 'D' },
+      { label: '마스터', value: 'M' },
+      { label: '그마', value: 'GM' },
+      { label: '챌린저', value: 'C' },
+      { label: '14~15 최고티어', value: 'P14' } // ✅ 추가
+    ]
+  );
 
   const replyMsg = await interaction.reply({
     content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
