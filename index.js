@@ -146,7 +146,6 @@ function renderContent(base, state) {
         const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
         const subLane  = laneInfo.sub ? laneMap[laneInfo.sub]   : '없음';
         const tier     = tiers?.[id] || '없음';
-        const isLast   = last?.has(id) ? '⛔ 막판' : '';
 
         return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${isLast}`;
       }).join('\n')
