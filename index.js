@@ -163,11 +163,10 @@ function renderContent(base, state) {
 
   const head = base.split('\n\n참여자:')[0];
 
-  return (
-    `${head}\n\n` +
-    `참여자:\n${membersText}${extraNote}\n\n` +
-    `❌ 막판:\n${lastText}\n\n` +
-    `⭕ 대기:\n${waitText}`
+   return (
+     `${head}\n\n` +
+     `참여자:\n${membersText}${extraNote}\n\n` +
+     `❌ 막판:\n${lastText}`
   );
 }
 
