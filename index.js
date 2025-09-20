@@ -463,22 +463,7 @@ if (interaction.isStringSelectMenu()) {
     support: '서폿'
   };
 
-  // 버튼만 추출 (참여/취소/막판)
-  const existingButtons = message.components.filter(
-    row => row.components.some(c => c.data?.style) // style 속성이 있으면 버튼임
-  );
-
-// 주/부 라인 선택
-if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
-  if (customId === 'select_main_lane') {
-    state.lanes[user.id].main = values[0];
-  } else {
-    state.lanes[user.id].sub = values[0];
-  }
-  saveRooms();
-
-  // ✅ 티어 옵션 정의
+  // ✅ 티어 옵션 (항상 동일하게 사용)
   const tierOptions = [
     { label: '아이언', value: 'I' },
     { label: '브론즈', value: 'B' },
@@ -490,46 +475,95 @@ if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
     { label: '마스터', value: 'M' },
     { label: '그마', value: 'GM' },
     { label: '챌린저', value: 'C' },
-    { label: '14~15 최고티어', value: 'T1415' } // ✅ 추가
+    { label: '14~15 최고티어', value: 'T1415' }
   ];
 
-  return interaction.update({
-    content: renderContent(message.content, state),
-    components: [
-      ...existingButtons, // ✅ 버튼 유지
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('select_main_lane')
-          .setPlaceholder('주 라인을 선택하세요')
-          .addOptions(
-            Object.entries(laneMap).map(([val, label]) => ({
-              label,
-              value: val,
-              default: state.lanes[user.id]?.main === val
-            }))
-          )
-      ),
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('select_sub_lane')
-          .setPlaceholder('부 라인을 선택하세요')
-          .addOptions(
-            Object.entries(laneMap).map(([val, label]) => ({
-              label,
-              value: val,
-              default: state.lanes[user.id]?.sub === val
-            }))
-          )
-      ),
-      new ActionRowBuilder().addComponents( // 👇 티어 박스 유지 추가
-        new StringSelectMenuBuilder()
-          .setCustomId('select_tier')
-          .setPlaceholder('14~15 최고티어')
-          .addOptions(
-            tierOptions.map(opt => ({
-              label: opt.label,
-              value: opt.value,
-              default: state.tiers[user.id] === opt.value
+  // -------------------
+  // 주/부 라인 선택
+  // -------------------
+  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
+    if (customId === 'select_main_lane') {
+      state.lanes[user.id].main = values[0];
+    } else {
+      state.lanes[user.id].sub = values[0];
+    }
+    saveRooms();
+
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: [
+        // 버튼 유지
+        ...message.components.filter(r => r.components.some(c => c.data?.style)),
+        // 주 라인
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_main_lane')
+            .setPlaceholder('주 라인을 선택하세요')
+            .addOptions(
+              Object.entries(laneMap).map(([val, label]) => ({
+                label,
+                value: val,
+                default: state.lanes[user.id]?.main === val
+              }))
+            )
+        ),
+        // 부 라인
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_sub_lane')
+            .setPlaceholder('부 라인을 선택하세요')
+            .addOptions(
+              Object.entries(laneMap).map(([val, label]) => ({
+                label,
+                value: val,
+                default: state.lanes[user.id]?.sub === val
+              }))
+            )
+        ),
+        // ✅ 티어 박스도 항상 유지
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_tier')
+            .setPlaceholder('14~15 최고티어')
+            .addOptions(
+              tierOptions.map(opt => ({
+                label: opt.label,
+                value: opt.value,
+                default: state.tiers[user.id] === opt.value
+              }))
+            )
+        )
+      ]
+    });
+  }
+
+  // -------------------
+  // ⚡ 티어 선택 처리
+  // -------------------
+  if (customId === 'select_tier') {
+    state.tiers[user.id] = values[0];
+    saveRooms();
+
+    return interaction.update({
+      content: renderContent(message.content, state),
+      components: [
+        // 버튼 유지
+        ...message.components.filter(r => r.components.some(c => c.data?.style)),
+        // 라인 선택 유지
+        ...message.components.filter(r =>
+          r.components.some(c => c.data?.custom_id === 'select_main_lane' || c.data?.custom_id === 'select_sub_lane')
+        ),
+        // ✅ 티어 선택 갱신
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('select_tier')
+            .setPlaceholder('14~15 최고티어')
+            .addOptions(
+              tierOptions.map(opt => ({
+                label: opt.label,
+                value: opt.value,
+                default: state.tiers[user.id] === opt.value
               }))
             )
         )
