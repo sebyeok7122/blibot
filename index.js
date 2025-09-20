@@ -227,9 +227,9 @@ if (commandName === '내전시간변경') {
   // 권한 통과 ✅
   const newTime = options.getString('시간');
 
-  // 내전 모집 메시지 찾기
+  // 현재 채널에서 내전 모집 메시지 찾기
   const channel = interaction.channel;
-  const messages = await channel.messages.fetch({ limit: 20 });
+  const messages = await channel.messages.fetch({ limit: 20 }); // 최근 20개만 확인
   const recruitMsg = messages.find(m =>
     m.author.id === interaction.client.user.id &&
     m.content.includes('내전이 시작되었어요')
@@ -248,6 +248,7 @@ if (commandName === '내전시간변경') {
     });
   }
 }
+
 
 // 내전 & 칼바람내전
 if (commandName === '내전' || commandName === '칼바람내전') {
