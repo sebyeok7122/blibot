@@ -506,11 +506,14 @@ if (interaction.isStringSelectMenu()) {
                 default: state.tiers[user.id] === opt.value
               }))
             )
-        )
+         )
       ]
     });
   }
-}
+} // ← 선택 메뉴 핸들러 닫기
+
+}); // ← interactionCreate 닫기 (이거 추가!)
+
 
 // 로그인
-client.login(token);
+client.login(process.env.TOKEN);
