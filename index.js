@@ -134,26 +134,12 @@ const commands = [
     ),
 ];
 
-// ✅ 명령어 등록
-const rest = new REST({ version: '10' }).setToken(token);
-(async () => {
-  try {
-    console.log("🛰️ 슬래시 명령어 등록 시작...");
-    for (const gId of guildIds) {
-      await rest.put(Routes.applicationGuildCommands(clientId, gId), { body: commands.map(c => c.toJSON()) });
-      console.log(`✅ ${gId} 서버에 명령어 등록 완료!`);
-    }
-  } catch (error) {
-    console.error('❌ 명령어 등록 오류:', error);
-  }
-})();
-
 // ✅ 메시지 렌더링 함수
 function renderContent(base, state) {
-  const { members, lanes, tiers, last } = state;
+  const { members, lanes, tiers, last, wait } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-  // 참여자 목록을 문자열로 변환
+  // 참여자 목록
   const membersText = members.length
     ? members.map((id, i) => {
         const laneInfo = lanes?.[id] || { main: null, sub: null };
@@ -166,24 +152,17 @@ function renderContent(base, state) {
       }).join('\n')
     : '(없음)';
 
-  return (
-    `${base}\n\n` +
-    `참여자:\n${membersText}`
-  );
-}
-
   // ✅ 멘트 추가
   let extraNote = '';
-  if (members.length >= 11 && members.length <= 19) {
-    extraNote = '\n\n🍀 11번부터는 대기로 넘어갑니다 🍀';
-  } else if (members.length === 20) {
-    extraNote = '\n\n🍀 인원이 20명 되어 2팀으로 나뉘어 게임이 진행됩니다 🍀';
+  if (members.length % 10 === 0 && members.length > 0) {
+    extraNote = '\n\n🍀 내전 인원 10명 넘어갈시 인원 10의 배수만큼 동시 진행됩니다 나머지는 내전 시작 이후 대기자로 넘어가게 됩니다 ! 🍀';
   }
 
-  const lastText = asList([...last]);
-  const waitText = asList([...wait]);
+  const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
+  const waitText = wait?.size ? [...wait].map(id => `<@${id}>`).join(', ') : '(없음)';
 
   const head = base.split('\n\n참여자:')[0];
+
   return (
     `${head}\n\n` +
     `참여자:\n${membersText}${extraNote}\n\n` +
@@ -191,9 +170,6 @@ function renderContent(base, state) {
     `⭕ 대기:\n${waitText}`
   );
 }
-
-// ✅ interaction 처리
-client.on('interactionCreate', async (interaction) => {
 
   // -------------------
   // 1) 슬래시 명령어
