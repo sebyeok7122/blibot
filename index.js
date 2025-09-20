@@ -468,81 +468,68 @@ if (interaction.isStringSelectMenu()) {
     row => row.components.some(c => c.data?.style) // style 속성이 있으면 버튼임
   );
 
-  // 주/부 라인 선택
-  if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
-    if (customId === 'select_main_lane') {
-      state.lanes[user.id].main = values[0];
-    } else {
-      state.lanes[user.id].sub = values[0];
-    }
-    saveRooms();
-
-    return interaction.update({
-      content: renderContent(message.content, state),
-      components: [
-        ...existingButtons, // ✅ 버튼 유지
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_main_lane')
-            .setPlaceholder('주 라인을 선택하세요')
-            .addOptions(
-              Object.entries(laneMap).map(([val, label]) => ({
-                label,
-                value: val,
-                default: state.lanes[user.id]?.main === val
-              }))
-            )
-        ),
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_sub_lane')
-            .setPlaceholder('부 라인을 선택하세요')
-            .addOptions(
-              Object.entries(laneMap).map(([val, label]) => ({
-                label,
-                value: val,
-                default: state.lanes[user.id]?.sub === val
-              }))
-            )
-        )
-      ]
-    });
+// 주/부 라인 선택
+if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
+  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
+  if (customId === 'select_main_lane') {
+    state.lanes[user.id].main = values[0];
+  } else {
+    state.lanes[user.id].sub = values[0];
   }
+  saveRooms();
 
-  // ⚡ 티어 선택 처리
-  if (customId === 'select_tier') {
-    state.tiers[user.id] = values[0];
-    saveRooms();
+  // ✅ 티어 옵션 정의
+  const tierOptions = [
+    { label: '아이언', value: 'I' },
+    { label: '브론즈', value: 'B' },
+    { label: '실버', value: 'S' },
+    { label: '골드', value: 'G' },
+    { label: '플래티넘', value: 'P' },
+    { label: '에메랄드', value: 'E' },
+    { label: '다이아', value: 'D' },
+    { label: '마스터', value: 'M' },
+    { label: '그마', value: 'GM' },
+    { label: '챌린저', value: 'C' },
+    { label: '14~15 최고 티어', value: 'P14' }
+  ];
 
-   const tierOptions = [
-      { label: '아이언', value: 'I' },
-      { label: '브론즈', value: 'B' },
-      { label: '실버', value: 'S' },
-      { label: '골드', value: 'G' },
-      { label: '플래티넘', value: 'P' },
-      { label: '에메랄드', value: 'E' },
-      { label: '다이아', value: 'D' },
-      { label: '마스터', value: 'M' },
-      { label: '그마', value: 'GM' },
-      { label: '챌린저', value: 'C' },
-      { label: '14~15최고 티어', value: 'P14' } // ✅ 추가
-];
-
-
-    return interaction.update({
-      content: renderContent(message.content, state),
-      components: [
-        ...existingButtons, // ✅ 버튼 유지
-        new ActionRowBuilder().addComponents(
-         new StringSelectMenuBuilder()
-         .setCustomId('select_tier')
-         .setPlaceholder('14~15 최고티어') 
-         .addOptions(
-         tierOptions.map(opt => ({
-         label: opt.label,
-         value: opt.value,
-         default: state.tiers[user.id] === opt.value
+  return interaction.update({
+    content: renderContent(message.content, state),
+    components: [
+      ...existingButtons, // ✅ 버튼 유지
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_main_lane')
+          .setPlaceholder('주 라인을 선택하세요')
+          .addOptions(
+            Object.entries(laneMap).map(([val, label]) => ({
+              label,
+              value: val,
+              default: state.lanes[user.id]?.main === val
+            }))
+          )
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_sub_lane')
+          .setPlaceholder('부 라인을 선택하세요')
+          .addOptions(
+            Object.entries(laneMap).map(([val, label]) => ({
+              label,
+              value: val,
+              default: state.lanes[user.id]?.sub === val
+            }))
+          )
+      ),
+      new ActionRowBuilder().addComponents( // 👇 티어 박스 유지 추가
+        new StringSelectMenuBuilder()
+          .setCustomId('select_tier')
+          .setPlaceholder('14~15 최고티어')
+          .addOptions(
+            tierOptions.map(opt => ({
+              label: opt.label,
+              value: opt.value,
+              default: state.tiers[user.id] === opt.value
               }))
             )
         )
