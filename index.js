@@ -150,30 +150,27 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 // ✅ 메시지 렌더링 함수
 function renderContent(base, state) {
-  const { members, lanes, tiers, last, wait } = state;
+  const { members, lanes, tiers, last } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
- const asList = ids => {
-   return ids.length
-     ? ids.map(id => {
-        const mainLane = lanes?.[id]?.main ? laneMap[lanes[id].main] : '없음';
-        const subLane  = lanes?.[id]?.sub ? laneMap[lanes[id].sub]   : '없음';
+  // 참여자 목록을 문자열로 변환
+  const membersText = members.length
+    ? members.map((id, i) => {
+        const laneInfo = lanes?.[id] || { main: null, sub: null };
+        const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
+        const subLane  = laneInfo.sub ? laneMap[laneInfo.sub]   : '없음';
         const tier     = tiers?.[id] || '없음';
+        const isLast   = last?.has(id) ? '⛔ 막판' : '';
 
-        return `<@${id}> (주라인: ${mainLane} / 부라인: ${subLane} / 14~15최고 티어: ${tier})`;
+        return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${isLast}`;
       }).join('\n')
     : '(없음)';
-};
 
-// ✅ 참여자 번호 매기기 + 라인/티어 표시
-const membersText = members.length
-  ? members.map((id, i) => {
-      const lane = lanes?.[id]?.map(v => laneMap[v] || v).join('/') || '';
-      const tier = tiers?.[id] || '';
-      const extra = (lane || tier) ? ` (${lane} ${tier})` : '';
-      return `${i + 1}. <@${id}>${extra}`;
-    }).join('\n')
-  : '(없음)';
+  return (
+    `${base}\n\n` +
+    `참여자:\n${membersText}`
+  );
+}
 
   // ✅ 멘트 추가
   let extraNote = '';
@@ -529,14 +526,20 @@ if (interaction.isStringSelectMenu()) {
     state.tiers[user.id] = values[0];
     saveRooms();
 
-    const tierOptions = [
-      { label: '브론즈', value: 'bronze' },
-      { label: '실버', value: 'silver' },
-      { label: '골드', value: 'gold' },
-      { label: '플래티넘', value: 'platinum' },
-      { label: '다이아', value: 'diamond' },
-      { label: '14~15최고 티어', value: 'p' }
-    ];
+   const tierOptions = [
+      { label: '아이언', value: 'I' },
+      { label: '브론즈', value: 'B' },
+      { label: '실버', value: 'S' },
+      { label: '골드', value: 'G' },
+      { label: '플래티넘', value: 'P' },
+      { label: '에메랄드', value: 'E' },
+      { label: '다이아', value: 'D' },
+      { label: '마스터', value: 'M' },
+      { label: '그마', value: 'GM' },
+      { label: '챌린저', value: 'C' },
+      { label: '14~15최고 티어', value: 'P14' } // ✅ 추가
+];
+
 
     return interaction.update({
       content: renderContent(message.content, state),
