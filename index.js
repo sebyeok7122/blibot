@@ -535,14 +535,14 @@ if (interaction.isStringSelectMenu()) {
       components: [
         ...existingButtons, // ✅ 버튼 유지
         new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_tier')
-            .setPlaceholder('티어를 선택하세요')
-            .addOptions(
-              tierOptions.map(opt => ({
-                label: opt.label,
-                value: opt.value,
-                default: state.tiers[user.id] === opt.value
+         new StringSelectMenuBuilder()
+         .setCustomId('select_tier')
+         .setPlaceholder('14~15 최고티어') 
+         .addOptions(
+         tierOptions.map(opt => ({
+         label: opt.label,
+         value: opt.value,
+         default: state.tiers[user.id] === opt.value
               }))
             )
         )
