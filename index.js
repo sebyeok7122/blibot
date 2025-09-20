@@ -212,7 +212,7 @@ function renderContent(base, state) {
       } else return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
     }
    
- // 내전 시간 변경 ✅
+// 내전 시간 변경 ✅
 if (commandName === '내전시간변경') {
   const allowedRoles = ['1411424227457892412', '689438958140260361', '1415895023102197830'];
 
