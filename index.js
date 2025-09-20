@@ -516,4 +516,4 @@ if (interaction.isStringSelectMenu()) {
 
 
 // 로그인
-client.login(process.env.TOKEN);
+client.login(token);
