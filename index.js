@@ -482,56 +482,57 @@ if (interaction.isStringSelectMenu()) {
   // 주/부 라인 선택
   // -------------------
   if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
-    if (customId === 'select_main_lane') {
-      state.lanes[user.id].main = values[0];
-    } else {
-      state.lanes[user.id].sub = values[0];
-    }
-    saveRooms();
+  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
+  if (customId === 'select_main_lane') {
+    state.lanes[user.id].main = values[0];  // 주라인은 단일 선택
+  } else {
+    state.lanes[user.id].sub = values;      // ✅ 부라인은 배열로 저장
+  }
+  saveRooms();
 
-    return interaction.update({
-      content: renderContent(message.content, state),
-      components: [
-        // 버튼 유지
-        ...message.components.filter(r => r.components.some(c => c.data?.style)),
-        // 주 라인
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_main_lane')
-            .setPlaceholder('주 라인을 선택하세요')
-            .addOptions(
-              Object.entries(laneMap).map(([val, label]) => ({
-                label,
-                value: val,
-                default: state.lanes[user.id]?.main === val
-              }))
-            )
-        ),// 부 라인 (다중 선택 지원)
+  return interaction.update({
+    content: renderContent(message.content, state),
+    components: [
+      // 버튼 유지
+      ...message.components.filter(r => r.components.some(c => c.data?.style)),
+      // 주 라인
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_main_lane')
+          .setPlaceholder('주 라인을 선택하세요')
+          .addOptions(
+            Object.entries(laneMap).map(([val, label]) => ({
+              label,
+              value: val,
+              default: state.lanes[user.id]?.main === val
+            }))
+          )
+      ),
+      // 부 라인 (다중 선택 지원)
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId('select_sub_lane')
           .setPlaceholder('부 라인을 선택하세요')
           .setMinValues(1)
-          .setMaxValues(5) // ✅ 여러 개 선택 가능
+          .setMaxValues(5)
           .addOptions(
             Object.entries(laneMap).map(([val, label]) => ({
               label,
               value: val,
-              default: state.lanes[user.id]?.sub?.includes(val)
+              default: state.lanes[user.id]?.sub?.includes(val) // ✅ 여러 개 체크 유지
             }))
           )
       ),
-        // ✅ 티어 박스도 항상 유지
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('select_tier')
-            .setPlaceholder('14~15 최고티어')
-            .addOptions(
-              tierOptions.map(opt => ({
-                label: opt.label,
-                value: opt.value,
-                default: state.tiers[user.id] === opt.value
+      // ✅ 티어 박스도 항상 유지
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_tier')
+          .setPlaceholder('14~15 최고티어')
+          .addOptions(
+            tierOptions.map(opt => ({
+              label: opt.label,
+              value: opt.value,
+              default: state.tiers[user.id] === opt.value
               }))
             )
         )
