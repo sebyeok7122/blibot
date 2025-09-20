@@ -276,56 +276,103 @@ if (commandName === '내전시간변경') {
   }
 }
 
-    // 내전 & 칼바람내전
-    if (commandName === '내전' || commandName === '칼바람내전') {
-      const startTime = options.getString('시간');
-      const isAram = commandName === '칼바람내전';
+// 내전 & 칼바람내전
+if (commandName === '내전' || commandName === '칼바람내전') {
+  // ✅ 관리자 + 도우미 권한 체크
+  const allowedRoles = [
+    '689438958140260361',
+    '1415895023102197830'
+  ];
 
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❌ 취소').setStyle(ButtonStyle.Danger);
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn);
-
-      const mainLaneSelect = new StringSelectMenuBuilder().setCustomId('select_main_lane').setPlaceholder('주라인 선택')
-        .setMinValues(1).setMaxValues(5)
-        .addOptions({ label: '탑', value: 'top' }, { label: '정글', value: 'jungle' },
-                    { label: '미드', value: 'mid' }, { label: '원딜', value: 'adc' }, { label: '서폿', value: 'support' });
-
-      const subLaneSelect = new StringSelectMenuBuilder().setCustomId('select_sub_lane').setPlaceholder('부라인 선택')
-        .setMinValues(1).setMaxValues(5)
-        .addOptions({ label: '탑', value: 'top' }, { label: '정글', value: 'jungle' },
-                    { label: '미드', value: 'mid' }, { label: '원딜', value: 'adc' }, { label: '서폿', value: 'support' });
-
-      const tierSelect = new StringSelectMenuBuilder().setCustomId('select_tier').setPlaceholder('최고 티어 선택')
-        .addOptions(['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t })));
-
-      const replyMsg = await interaction.reply({
-        content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-        components: [row,
-          new ActionRowBuilder().addComponents(mainLaneSelect),
-          new ActionRowBuilder().addComponents(subLaneSelect),
-          new ActionRowBuilder().addComponents(tierSelect)],
-        fetchReply: true
-      });
-
-      roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
-
-    setTimeout(async () => {
-      try {
-        await replyMsg.edit({
-         content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 막판/대기 상태를 선택해주세요.',
-          components: [
-           ...replyMsg.components, // 기존 버튼 유지
-          new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('last_call').setLabel('막판').setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId('wait').setLabel('대기').setStyle(ButtonStyle.Secondary)
-        )
-      ]
+  if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+    return interaction.reply({
+      content: '🤍 내전 모집은 관리자 혹은 도우미에게 문의주세요 🤍',
+      ephemeral: true
     });
+  }
+
+  const startTime = options.getString('시간');
+  const isAram = commandName === '칼바람내전';
+
+  const joinBtn = new ButtonBuilder()
+    .setCustomId('join_game')
+    .setLabel('✅ 내전참여')
+    .setStyle(ButtonStyle.Success);
+
+  const leaveBtn = new ButtonBuilder()
+    .setCustomId('leave_game')
+    .setLabel('❎ 내전취소')
+    .setStyle(ButtonStyle.Danger);
+
+  const lastBtn = new ButtonBuilder()
+    .setCustomId('last_call')
+    .setLabel('⛔ 막판')
+    .setStyle(ButtonStyle.Primary);
+
+  // ✅ 대기 버튼 제외 → 내전참여 / 내전취소 / 막판만
+  const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
+
+  const mainLaneSelect = new StringSelectMenuBuilder()
+    .setCustomId('select_main_lane')
+    .setPlaceholder('주라인 선택')
+    .setMinValues(1).setMaxValues(5)
+    .addOptions(
+      { label: '탑', value: 'top' },
+      { label: '정글', value: 'jungle' },
+      { label: '미드', value: 'mid' },
+      { label: '원딜', value: 'adc' },
+      { label: '서폿', value: 'support' }
+    );
+
+  const subLaneSelect = new StringSelectMenuBuilder()
+    .setCustomId('select_sub_lane')
+    .setPlaceholder('부라인 선택')
+    .setMinValues(1).setMaxValues(5)
+    .addOptions(
+      { label: '탑', value: 'top' },
+      { label: '정글', value: 'jungle' },
+      { label: '미드', value: 'mid' },
+      { label: '원딜', value: 'adc' },
+      { label: '서폿', value: 'support' }
+    );
+
+  const tierSelect = new StringSelectMenuBuilder()
+    .setCustomId('select_tier')
+    .setPlaceholder('최고 티어 선택')
+    .addOptions(['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t })));
+
+  const replyMsg = await interaction.reply({
+    content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
+    components: [
+      row,
+      new ActionRowBuilder().addComponents(mainLaneSelect),
+      new ActionRowBuilder().addComponents(subLaneSelect),
+      new ActionRowBuilder().addComponents(tierSelect)
+    ],
+    fetchReply: true
+  });
+
+  roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+}
+
+  setTimeout(async () => {
+    try {
+      await replyMsg.edit({
+        content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 마지막 참여 여부(막판)를 선택해주세요..',
+        components: [
+          ...replyMsg.components, // 기존 버튼 유지
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('last_call').setLabel('막판').setStyle(ButtonStyle.Primary)
+            // ⏳ 대기 버튼 제거!
+          )
+        ]
+      });
     } catch (err) {
       console.error('막판/대기 버튼 추가 오류:', err);
     }
-   }, 1000 * 60 * 40); // 40분 뒤 실행
- }
+  }, 1000 * 60 * 40); // 40분 뒤 실행
+}
+
 
     // 딥롤방연결
     if (commandName === '딥롤방연결') {
@@ -346,6 +393,7 @@ if (commandName === '내전시간변경') {
 // -------------------
 // 2) 버튼 핸들러
 // -------------------
+
 if (interaction.isButton()) {
   const { customId, user, message } = interaction;
   const key = message.id;
@@ -359,19 +407,18 @@ if (interaction.isButton()) {
       .join('\n');
 
     let extraNote = '';
-    if (state.members.length >= 11 && state.members.length <= 19) {
-      extraNote = '\n\n🍀 11번부터는 대기로 넘어갑니다 🍀';
-    } else if (state.members.length === 20) {
-      extraNote = '\n\n🍀 20명이 되면 자동으로 2팀으로 나뉩니다 🍀';
+    if (state.members.length % 10 === 0 && state.members.length > 0) {
+      extraNote = '\n\n🍀 내전 인원 10명 넘어갈시 인원 10의 배수만큼 동시 진행됩니다 나머지는 내전 시작 이후 대기자로 넘어가게 됩니다 ! 🍀';
     }
 
     return `참여자:\n${memberList}${extraNote}`;
   };
-    const updateMessage = () => 
+
+  const updateMessage = () => 
     interaction.update({ 
-    content: renderContent(message.content, state), 
-    components: message.components 
-  });
+      content: renderContent(message.content, state), 
+      components: message.components 
+    });
 
   if (customId === 'join_game') { 
     if (!state.members.includes(user.id)) state.members.push(user.id); 
@@ -397,14 +444,6 @@ if (interaction.isButton()) {
     return updateMessage(); 
   }
 
-  if (customId === 'wait') { 
-    state.wait.add(user.id); 
-    state.last.delete(user.id); 
-    saveRooms(); 
-    backupRooms(state); // ✅ 대기 버튼 시 백업
-    return updateMessage(); 
-  }
-
   if (customId === 'cancel_match') {
     const hostId = message.interaction?.user?.id;
     if (user.id !== hostId) 
@@ -417,9 +456,13 @@ if (interaction.isButton()) {
   }
 }
 
+  }
+}
+
 // -------------------
 // 3) 선택 메뉴 핸들러
 // -------------------
+
 if (interaction.isStringSelectMenu()) {
   const { customId, values, user, message } = interaction;
   const key = message.id;
@@ -434,9 +477,13 @@ if (interaction.isStringSelectMenu()) {
     support: '서폿'
   };
 
+  // 버튼만 추출 (참여/취소/막판)
+  const existingButtons = message.components.filter(
+    row => row.components.some(c => c.data?.style) // style 속성이 있으면 버튼임
+  );
+
   // 주/부 라인 선택
   if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
-    // 저장
     state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: null };
     if (customId === 'select_main_lane') {
       state.lanes[user.id].main = values[0];
@@ -448,8 +495,7 @@ if (interaction.isStringSelectMenu()) {
     return interaction.update({
       content: renderContent(message.content, state),
       components: [
-
-        // 주 라인 선택 메뉴
+        ...existingButtons, // ✅ 버튼 유지
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('select_main_lane')
@@ -462,7 +508,6 @@ if (interaction.isStringSelectMenu()) {
               }))
             )
         ),
-        // 부 라인 선택 메뉴
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('select_sub_lane')
@@ -496,22 +541,23 @@ if (interaction.isStringSelectMenu()) {
     return interaction.update({
       content: renderContent(message.content, state),
       components: [
+        ...existingButtons, // ✅ 버튼 유지
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('select_tier')
             .setPlaceholder('티어를 선택하세요')
             .addOptions(
               tierOptions.map(opt => ({
-                ...opt,
+                label: opt.label,
+                value: opt.value,
                 default: state.tiers[user.id] === opt.value
               }))
             )
-         )
+        )
       ]
     });
   }
-} // ← 선택 메뉴 핸들러 닫기
-
+}
 }); // ← interactionCreate 닫기 (이거 추가!)
 
 
