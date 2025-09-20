@@ -325,7 +325,7 @@ const tierSelect = new StringSelectMenuBuilder()
       { label: '마스터', value: 'M' },
       { label: '그마', value: 'GM' },
       { label: '챌린저', value: 'C' },
-      { label: '14~15 최고티어', value: 'P14' } // ✅ 추가
+      { label: '14~15 최고티어', value: 'T1415' } // ✅ 추가
     ]
   );
 
@@ -490,7 +490,7 @@ if (customId === 'select_main_lane' || customId === 'select_sub_lane') {
     { label: '마스터', value: 'M' },
     { label: '그마', value: 'GM' },
     { label: '챌린저', value: 'C' },
-    { label: '14~15 최고 티어', value: 'P14' }
+    { label: '14~15 최고티어', value: 'T1415' } // ✅ 추가
   ];
 
   return interaction.update({
