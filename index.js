@@ -171,6 +171,7 @@ function renderContent(base, state) {
   );
 }
 
+client.on('interactionCreate', async (interaction) => {
   // -------------------
   // 1) 슬래시 명령어
   // -------------------
@@ -248,7 +249,6 @@ if (commandName === '내전시간변경') {
     });
   }
 }
-
 
 // 내전 & 칼바람내전
 if (commandName === '내전' || commandName === '칼바람내전') {
