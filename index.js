@@ -329,16 +329,16 @@ const tierSelect = new StringSelectMenuBuilder()
     ]
   );
 
-  const replyMsg = await interaction.reply({
-    content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)`,
-    components: [
-      row,
-      new ActionRowBuilder().addComponents(mainLaneSelect),
-      new ActionRowBuilder().addComponents(subLaneSelect),
-      new ActionRowBuilder().addComponents(tierSelect)
-    ],
-    fetchReply: true
-  });
+const replyMsg = await interaction.reply({
+  content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)\n\n❌ 막판:\n(없음)`,
+  components: [
+    row,
+    new ActionRowBuilder().addComponents(mainLaneSelect),
+    new ActionRowBuilder().addComponents(subLaneSelect),
+    new ActionRowBuilder().addComponents(tierSelect)
+  ],
+  fetchReply: true
+});
 
   roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
