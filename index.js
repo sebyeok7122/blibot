@@ -312,7 +312,7 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   const tierSelect = new StringSelectMenuBuilder()
     .setCustomId('select_tier')
-    .setPlaceholder('최고 티어 선택')
+    .setPlaceholder('14~15 최고티어')
     .addOptions(
       ['I','B','S','G','P','E','D','M','GM','C'].map(t => ({ label: t, value: t }))
     );
