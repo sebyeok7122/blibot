@@ -144,38 +144,32 @@ function formatKST(date) {
   });
 }
 
-// ✅ 메시지 렌더링 함수 (Embed 버전, 시작시간 + 참여시간 포함)
 function renderEmbed(state, startTime, isAram) {
   const { members, lanes, tiers, last, joinedAt } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-  // 참여자 목록 (40명 제한)
-  let membersText = members.slice(0, 40).map((id, i) => {
-    const laneInfo = lanes?.[id] || { main: null, sub: [] };
+  let membersText = members.slice(0, 40).map((m, i) => {
+    const userId = typeof m === "string" ? m : m.id;
+    const laneInfo = lanes?.[userId] || { main: null, sub: [] };
     const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
-    const subLane  = laneInfo.sub?.length
-      ? laneInfo.sub.map(val => laneMap[val]).join(', ')
-      : '없음';
-    const tier     = tiers?.[id] || '없음';
-    const timeText = joinedAt?.[id] ? formatKST(joinedAt[id]) : '';
+    const subLane  = laneInfo.sub?.length ? laneInfo.sub.map(v => laneMap[v]).join(', ') : '없음';
+    const tier     = tiers?.[userId] || '없음';
+    const timeText = joinedAt?.[userId] ? formatKST(joinedAt[userId]) : '';
 
-    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
-  }).join('\n');
+    return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
+  }).join('\n') || "(없음)";
 
   if (members.length > 40) {
     membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
-  // 막판자 블럭
   const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
 
   return {
     color: 0x5865F2,
     title: `📋 [${isAram ? "칼바람" : "𝙡𝙤𝙡𝙫𝙚𝙡𝙮"}] 내전이 시작되었어요`,
-    description: `🕒 시작: ${startTime}\n\n참여자:\n${membersText || "(없음)"}`,
-    fields: [
-      { name: "❌ 막판", value: lastText, inline: false }
-    ],
+    description: `🕒 시작: ${startTime || "미정"}\n\n참여자:\n${membersText}`,
+    fields: [{ name: "❌ 막판", value: lastText, inline: false }],
     timestamp: new Date()
   };
 }
@@ -343,16 +337,19 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   // ✅ 여기서 content 대신 embed 사용
   const replyMsg = await interaction.reply({
-    embeds: [
-      renderEmbed({
-        members: [],
-        lanes: {},
-        tiers: {},
-        last: new Set(),
-        startTime,
-        isAram
-      })
-    ],
+embeds: [
+  renderEmbed(
+    {
+      members: [],
+      lanes: {},
+      tiers: {},
+      last: new Set(),
+      joinedAt: {}
+    },
+    startTime,
+    isAram
+  )
+],
     components: [
       row,
       new ActionRowBuilder().addComponents(mainLaneSelect),
@@ -425,11 +422,11 @@ if (interaction.isButton()) {
   const state = roomState.get(key);
 
   // 메시지 업데이트 함수 (임베드 버전)
-  const updateMessage = () =>
-    interaction.update({
-      embeds: [renderEmbed(state)], // ✅ content → embeds 교체
-      components: message.components
-    });
+const updateMessage = () =>
+  interaction.update({ 
+    embeds: [renderEmbed(state, state.startTime, state.isAram)],
+    components: message.components
+  });
 
 // ✅ 내전 참여
 if (customId === 'join_game') {
