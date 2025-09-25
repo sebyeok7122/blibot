@@ -144,23 +144,25 @@ function formatKST(date) {
   });
 }
 
-// ✅ 메시지 렌더링 함수 (Embed 버전, 시작시간 포함)
+// ✅ 메시지 렌더링 함수 (Embed 버전, 시작시간 + 참여시간 포함)
 function renderEmbed(state, startTime, isAram) {
-  const { members, lanes, tiers, last } = state;
+  const { members, lanes, tiers, last, joinedAt } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
   // 참여자 목록 (40명 제한)
-  let membersText = state.members.slice(0, 40).map((id, i) => {
+  let membersText = members.slice(0, 40).map((id, i) => {
     const laneInfo = lanes?.[id] || { main: null, sub: [] };
     const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
     const subLane  = laneInfo.sub?.length
       ? laneInfo.sub.map(val => laneMap[val]).join(', ')
       : '없음';
     const tier     = tiers?.[id] || '없음';
-    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
+    const timeText = joinedAt?.[id] ? formatKST(joinedAt[id]) : '';
+
+    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
   }).join('\n');
 
-  if (state.members.length > 40) {
+  if (members.length > 40) {
     membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
@@ -177,8 +179,6 @@ function renderEmbed(state, startTime, isAram) {
     timestamp: new Date()
   };
 }
-
-
 
 module.exports = renderEmbed;
 
@@ -362,8 +362,17 @@ if (commandName === '내전' || commandName === '칼바람내전') {
     fetchReply: true
   });
 
-  // 방 상태 저장
-  roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+// 방 상태 저장
+roomState.set(replyMsg.id, { 
+  members: [], 
+  lanes: {}, 
+  tiers: {}, 
+  last: new Set(), 
+  wait: new Set(),
+  startTime,   // ✅ 시작 시간 저장
+  isAram,      // ✅ 칼바람 여부 저장
+  joinedAt: {} // ✅ 참여 시간 기록용
+});
 
   // ✅ 40분 뒤 알림 & 막판 버튼 강조
   setTimeout(async () => {
@@ -422,15 +431,20 @@ if (interaction.isButton()) {
       components: message.components
     });
 
-  // ✅ 내전 참여
-  if (customId === 'join_game') {
-    if (!state.members.some(m => (m.id || m) === user.id)) {
-      state.members.push({ id: user.id, joinedAt: Date.now() }); // ⏰ 참여 시간 기록
-    }
-    saveRooms();
-    backupRooms(state);
-    return updateMessage();
+// ✅ 내전 참여
+if (customId === 'join_game') {
+  if (!state.members.includes(user.id)) {
+    state.members.push(user.id);              // 🔹 ID만 저장
+    state.joinedAt = state.joinedAt || {};    // 🔹 joinedAt 초기화
+    state.joinedAt[user.id] = Date.now();     // 🔹 시간 따로 기록
   }
+  saveRooms();
+  backupRooms(state);
+  return interaction.update({
+    embeds: [renderEmbed(state, state.startTime, state.isAram)], // 🔹 시간/모드 넘겨줌
+    components: message.components
+  });
+}
 
   // ✅ 내전 취소
   if (customId === 'leave_game') {
