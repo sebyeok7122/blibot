@@ -147,6 +147,25 @@ const commands = [
     .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
 ];
 
+// ✅ 슬래시 명령어 등록
+const rest = new REST({ version: '10' }).setToken(token);
+
+(async () => {
+  try {
+    console.log("📢 슬래시 명령어 등록 시작...");
+    for (const guildId of guildIds) {
+      await rest.put(
+        Routes.applicationGuildCommands(clientId, guildId),
+        { body: commands }
+      );
+      console.log(`✅ ${guildId} 서버에 명령어 등록 완료!`);
+    }
+  } catch (error) {
+    console.error("❌ 명령어 등록 실패:", error);
+  }
+})();
+
+
 // ✅ 시간 포맷 (한국 기준)
 function formatKST(date) {
   return new Date(date).toLocaleString("ko-KR", {
