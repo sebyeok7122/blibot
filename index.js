@@ -134,42 +134,61 @@ const commands = [
     ),
 ];
 
-// ✅ 메시지 렌더링 함수
-function renderContent(base, state) {
+// 시간 포맷 함수
+function formatTime(ts) {
+  const date = new Date(ts);
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const ampm = hours < 12 ? "오전" : "오후";
+  const hour12 = hours % 12 || 12;
+  return `${ampm} ${hour12}:${minutes}`;
+}
+
+// ✅ 메시지 렌더링 함수 (Embed 버전, 40명 제한 + 참여시간 포함)
+function renderEmbed(state) {
   const { members, lanes, tiers, last } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-// 참여자 목록
-     const membersText = members.length
-        ? members.map((id, i) => {
-        const laneInfo = lanes?.[id] || { main: null, sub: [] };
-       const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
-      const subLane  = laneInfo.sub?.length
-     ? laneInfo.sub.map(val => laneMap[val]).join(', ')
-   : '없음';
- const tier     = tiers?.[id] || '없음';
+  // 참여자 목록 (40명 제한)
+  let membersText = members.slice(0, 40).map((entry, i) => {
+    const id = entry.id || entry;  // entry가 객체면 entry.id, 아니면 그대로
+    const joinedAt = entry.joinedAt || null;
 
-      return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
-    }).join('\n')
-  : '(없음)';
+    const laneInfo = lanes?.[id] || { main: null, sub: [] };
+    const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
+    const subLane  = laneInfo.sub?.length
+      ? laneInfo.sub.map(val => laneMap[val]).join(', ')
+      : '없음';
+    const tier     = tiers?.[id] || '없음';
 
-  // ✅ 멘트 추가
-  let extraNote = '';
-  if (members.length % 10 === 0 && members.length > 0) {
-    extraNote = '\n\n🍀 내전 인원 10명 넘어갈시 인원 10의 배수만큼 동시 진행됩니다 나머지는 내전 시작 이후 대기자로 넘어가게 됩니다 ! 🍀';
+    // ⏰ 시간 붙이기
+    const timeText = joinedAt ? ` ${formatTime(joinedAt)}` : "";
+
+    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})${timeText}`;
+  }).join('\n');
+
+  // 40명 초과 시 안내 멘트
+  if (members.length > 40) {
+    membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
   // 막판자 블럭
   const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
 
-  const head = base.split('\n\n참여자:')[0];
-
-  return (
-    `${head}\n\n` +
-    `참여자:\n${membersText}${extraNote}\n\n` +
-    `❌ 막판:\n${lastText}`
-  );
+  return {
+    color: 0x5865F2, // Discord 블루 💙
+    title: "📋 내전 참여자 현황",
+    description: membersText || "(없음)",
+    fields: [
+      { name: "❌ 막판", value: lastText, inline: false }
+    ],
+    timestamp: new Date()
+  };
 }
+
+
+module.exports = renderEmbed;
+
 
 client.on('interactionCreate', async (interaction) => {
   // -------------------
@@ -268,6 +287,7 @@ if (commandName === '내전' || commandName === '칼바람내전') {
   const startTime = options.getString('시간');
   const isAram = commandName === '칼바람내전';
 
+  // ✅ 버튼 정의
   const joinBtn = new ButtonBuilder()
     .setCustomId('join_game')
     .setLabel('✅ 내전참여')
@@ -283,9 +303,10 @@ if (commandName === '내전' || commandName === '칼바람내전') {
     .setLabel('⛔ 막판')
     .setStyle(ButtonStyle.Primary);
 
-  // ✅ 버튼: 참여 / 취소 / 막판
+  // 버튼 묶음
   const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
+  // ✅ 셀렉트 박스 정의
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId('select_main_lane')
     .setPlaceholder('주라인 선택')
@@ -310,11 +331,10 @@ if (commandName === '내전' || commandName === '칼바람내전') {
       { label: '서폿', value: 'support' }
     );
 
-const tierSelect = new StringSelectMenuBuilder()
-  .setCustomId('select_tier')
-  .setPlaceholder('14~15 최고티어')
-  .addOptions(
-    [
+  const tierSelect = new StringSelectMenuBuilder()
+    .setCustomId('select_tier')
+    .setPlaceholder('14~15 최고티어')
+    .addOptions(
       { label: '아이언', value: 'I' },
       { label: '브론즈', value: 'B' },
       { label: '실버', value: 'S' },
@@ -325,20 +345,33 @@ const tierSelect = new StringSelectMenuBuilder()
       { label: '마스터', value: 'M' },
       { label: '그마', value: 'GM' },
       { label: '챌린저', value: 'C' },
-      { label: '14~15 최고티어', value: 'T1415' } // ✅ 추가
-    ]
-  );
+      { label: '14~15 최고티어', value: 'T1415' }
+    );
 
-const replyMsg = await interaction.reply({
-  content: `**[${isAram ? '칼바람' : '𝙡𝙤𝙡𝙫𝙚𝙡𝙮'}] 내전이 시작되었어요**\n🕒 시작: ${startTime}\n\n참여자:\n(없음)\n\n❌ 막판:\n(없음)`,
-  components: [
-    row,
-    new ActionRowBuilder().addComponents(mainLaneSelect),
-    new ActionRowBuilder().addComponents(subLaneSelect),
-    new ActionRowBuilder().addComponents(tierSelect)
-  ],
-  fetchReply: true
-});
+  // ✅ 여기서 content 대신 embed 사용
+  const replyMsg = await interaction.reply({
+    embeds: [
+      renderEmbed({
+        members: [],
+        lanes: {},
+        tiers: {},
+        last: new Set(),
+        startTime,
+        isAram
+      })
+    ],
+    components: [
+      row,
+      new ActionRowBuilder().addComponents(mainLaneSelect),
+      new ActionRowBuilder().addComponents(subLaneSelect),
+      new ActionRowBuilder().addComponents(tierSelect)
+    ],
+    fetchReply: true
+  });
+
+  // 방 상태 저장
+  roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+}
 
   roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
@@ -346,7 +379,7 @@ const replyMsg = await interaction.reply({
   setTimeout(async () => {
     try {
       await replyMsg.edit({
-        content: replyMsg.content + '\n\n🔥 내전이 곧 시작됩니다! 마지막 참여 여부(막판)를 선택해주세요.',
+        embeds: [renderEmbed(roomState.get(replyMsg.id))], // ✅ 현재 상태로 임베드 갱신,
         components: [
           ...replyMsg.components,
           new ActionRowBuilder().addComponents(
@@ -386,61 +419,61 @@ const replyMsg = await interaction.reply({
 if (interaction.isButton()) {
   const { customId, user, message } = interaction;
   const key = message.id;
-  if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+
+  if (!roomState.has(key)) {
+    roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
+  }
   const state = roomState.get(key);
 
-  // 참여자 목록을 다시 렌더링하는 함수
-  const renderMembers = () => {
-    const memberList = state.members
-      .map((id, i) => `${i + 1}. <@${id}>`)
-      .join('\n');
-
-    let extraNote = '';
-    if (state.members.length % 10 === 0 && state.members.length > 0) {
-      extraNote = '\n\n🍀 내전 인원 10명 넘어갈시 인원 10의 배수만큼 동시 진행됩니다 나머지는 내전 시작 이후 대기자로 넘어가게 됩니다 ! 🍀';
-    }
-
-    return `참여자:\n${memberList}${extraNote}`;
-  };
-
-  const updateMessage = () => 
-    interaction.update({ 
-      content: renderContent(message.content, state), 
-      components: message.components 
+  // 메시지 업데이트 함수 (임베드 버전)
+  const updateMessage = () =>
+    interaction.update({
+      embeds: [renderEmbed(state)], // ✅ content → embeds 교체
+      components: message.components
     });
 
-  if (customId === 'join_game') { 
-    if (!state.members.includes(user.id)) state.members.push(user.id); 
-    saveRooms(); 
-    backupRooms(state); // ✅ 참여 시 백업
-    return updateMessage(); 
+  // ✅ 내전 참여
+  if (customId === 'join_game') {
+    if (!state.members.some(m => (m.id || m) === user.id)) {
+      state.members.push({ id: user.id, joinedAt: Date.now() }); // ⏰ 참여 시간 기록
+    }
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
   }
 
-  if (customId === 'leave_game') { 
-    state.members = state.members.filter(id => id !== user.id); 
-    state.last.delete(user.id); 
-    state.wait.delete(user.id); 
-    saveRooms(); 
-    backupRooms(state); // ✅ 취소 시 백업
-    return updateMessage(); 
+  // ✅ 내전 취소
+  if (customId === 'leave_game') {
+    state.members = state.members.filter(m => (m.id || m) !== user.id);
+    state.last.delete(user.id);
+    state.wait.delete(user.id);
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
   }
 
-  if (customId === 'last_call') { 
-    state.last.add(user.id); 
-    state.wait.delete(user.id); 
-    saveRooms(); 
-    backupRooms(state); // ✅ 막판 버튼 시 백업
-    return updateMessage(); 
+  // ✅ 막판 버튼
+  if (customId === 'last_call') {
+    state.last.add(user.id);
+    state.wait.delete(user.id);
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
   }
 
+  // ✅ 모집 취소
   if (customId === 'cancel_match') {
     const hostId = message.interaction?.user?.id;
-    if (user.id !== hostId) 
-      return interaction.reply({ content: '⚠️ 진행자만 취소할 수 있어요 ⚠️', ephemeral: true });
-    roomState.delete(key); 
-    await message.delete().catch(() => {}); 
-    saveRooms(); 
-    backupRooms(state); // ✅ 모집 취소 시 백업
+    if (user.id !== hostId) {
+      return interaction.reply({
+        content: '⚠️ 진행자만 취소할 수 있어요 ⚠️',
+        ephemeral: true
+      });
+    }
+    roomState.delete(key);
+    await message.delete().catch(() => {});
+    saveRooms();
+    backupRooms(state);
     return interaction.reply({ content: ' 📋 내전 모집이 취소되었습니다 📋 ' });
   }
 }
@@ -490,8 +523,8 @@ if (interaction.isStringSelectMenu()) {
   }
   saveRooms();
 
-  return interaction.update({
-    content: renderContent(message.content, state),
+ return interaction.update({
+  embeds: [renderEmbed(state)], // ✅ content → embeds 교체
     components: [
       // 버튼 유지
       ...message.components.filter(r => r.components.some(c => c.data?.style)),
