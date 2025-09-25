@@ -446,12 +446,12 @@ if (customId === 'join_game') {
   const isAlreadyIn = state.members.includes(user.id) || state.wait.has(user.id);
 
   if (!isAlreadyIn) {
-    // 최대 40 제한 (참여 + 대기)
+    // 최대 40 제한
     if (state.members.length + state.wait.size >= 40) {
       return interaction.reply({ content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.', ephemeral: true });
     }
 
-    // 10명 단위 로직: 1~10 참여, 11~20 대기 → 대기 10명 되면 일괄 승급
+    // 참여/대기 로직
     if (state.members.length > 0 && state.members.length % 10 === 0) {
       state.wait.add(user.id);
       if (state.wait.size === 10) {
@@ -470,7 +470,7 @@ if (customId === 'join_game') {
     backupRooms(state);
   }
 
-  // ✅ 개인 설정창 (이미 참여했어도 항상 다시 띄움)
+  // ✅ 개인 설정창 생성 (항상 동일)
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId(`lane_${user.id}`)
     .setPlaceholder('주라인 선택')
@@ -513,9 +513,23 @@ if (customId === 'join_game') {
       { label: '14~15 최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
     );
 
-  // 공용 임베드는 동시에 갱신
+  // 공용 임베드 갱신
   await message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
 
+  // ✅ 이미 참여 상태면 reply 대신 followUp 사용
+  if (isAlreadyIn) {
+    return interaction.followUp({
+      content: '🥨 개인 내전 설정창입니다. 다시 수정할 수 있어요. 🥨',
+      ephemeral: true,
+      components: [
+        new ActionRowBuilder().addComponents(mainLaneSelect),
+        new ActionRowBuilder().addComponents(subLaneSelect),
+        new ActionRowBuilder().addComponents(tierSelect)
+      ]
+    });
+  }
+
+  // ✅ 새 참여자는 reply
   return interaction.reply({
     content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다.🥨',
     ephemeral: true,
