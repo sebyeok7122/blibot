@@ -467,9 +467,11 @@ client.on('interactionCreate', async (interaction) => {
           { label: '서폿', value: 'support' }
         );
 
-      const subLaneSelect = new StringSelectMenuBuilder()
+     const subLaneSelect = new StringSelectMenuBuilder()
         .setCustomId(`sublane_${user.id}`)
-        .setPlaceholder('부라인 선택')
+        .setPlaceholder('부라인 선택 (여러 개 가능)')
+        .setMinValues(1)   // 최소 1개 선택
+        .setMaxValues(5)   // 최대 5개 선택
         .addOptions(
           { label: '없음', value: 'none' },
           { label: '탑', value: 'top' },
