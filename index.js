@@ -371,15 +371,12 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   // 방 상태 저장
   roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
-}
-
-  roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set() });
 
   // ✅ 40분 뒤 알림 & 막판 버튼 강조
   setTimeout(async () => {
     try {
       await replyMsg.edit({
-        embeds: [renderEmbed(roomState.get(replyMsg.id))], // ✅ 현재 상태로 임베드 갱신,
+        embeds: [renderEmbed(roomState.get(replyMsg.id))], // ✅ 현재 상태로 임베드 갱신
         components: [
           ...replyMsg.components,
           new ActionRowBuilder().addComponents(
