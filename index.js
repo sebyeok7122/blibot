@@ -98,7 +98,7 @@ function loadRooms() {
 }
 loadRooms();
 
-// ✅ 명령어 정의
+// ✅ 명령어 정의 (원래 있던 명령어에 /막판자삭제 추가)
 const commands = [
   new SlashCommandBuilder()
     .setName('계정등록')
@@ -140,7 +140,7 @@ const commands = [
         .setRequired(true)
     ),
 
-  // ✅ 추가: /막판자삭제 @유저
+  // 추가: /막판자삭제
   new SlashCommandBuilder()
     .setName('막판자삭제')
     .setDescription('막판 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
@@ -158,10 +158,10 @@ function formatKST(date) {
 }
 
 function renderEmbed(state, startTime, isAram) {
-  const { members, lanes, tiers, last, joinedAt } = state;
+  const { members, lanes, tiers, last, joinedAt, wait } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
-  let membersText = members.slice(0, 40).map((m, i) => {
+  let membersText = (members || []).slice(0, 40).map((m, i) => {
     const userId = typeof m === "string" ? m : m.id;
     const laneInfo = lanes?.[userId] || { main: null, sub: [] };
     const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
@@ -172,17 +172,23 @@ function renderEmbed(state, startTime, isAram) {
     return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
   }).join('\n') || "(없음)";
 
-  if (members.length > 40) {
+  // 대기자 표시 (11~20 등)
+  const waitText = (wait && wait.size) ? [...wait].map((id, idx) => `${members.length + idx + 1}. <@${id}>`).join('\n') : '(없음)';
+
+  if ((members || []).length > 40) {
     membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
   const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
 
+  const fields = [{ name: "❌ 막판", value: lastText, inline: false }];
+  if (wait && wait.size) fields.push({ name: "⏳ 대기자", value: waitText, inline: false });
+
   return {
     color: 0x5865F2,
     title: `📋 [${isAram ? "칼바람" : "𝙡𝙤𝙡𝙫𝙚𝙡𝙮"}] 내전이 시작되었어요`,
     description: `🕒 시작: ${startTime || "미정"}\n\n참여자:\n${membersText}`,
-    fields: [{ name: "❌ 막판", value: lastText, inline: false }],
+    fields,
     timestamp: new Date()
   };
 }
