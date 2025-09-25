@@ -622,7 +622,8 @@ if (interaction.isStringSelectMenu()) {
 
   // ✅ 선택 반영만 하고, UI는 그대로 유지
   await interaction.deferUpdate();
-}
+ }
+} // ← isStringSelectMenu 블럭 닫기 + interactionCreate 전체 닫기
 
 // 로그인
 client.login(token);
