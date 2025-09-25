@@ -134,41 +134,33 @@ const commands = [
     ),
 ];
 
-// 시간 포맷 함수
-function formatTime(ts) {
-  const date = new Date(ts);
-  const hours = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  const ampm = hours < 12 ? "오전" : "오후";
-  const hour12 = hours % 12 || 12;
-  return `${ampm} ${hour12}:${minutes}`;
+// ✅ 시간 포맷 (한국 기준)
+function formatKST(date) {
+  return new Date(date).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true
+  });
 }
 
-// ✅ 메시지 렌더링 함수 (Embed 버전, 40명 제한 + 참여시간 포함)
-function renderEmbed(state) {
+// ✅ 메시지 렌더링 함수 (Embed 버전, 시작시간 포함)
+function renderEmbed(state, startTime, isAram) {
   const { members, lanes, tiers, last } = state;
   const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
   // 참여자 목록 (40명 제한)
-  let membersText = members.slice(0, 40).map((entry, i) => {
-    const id = entry.id || entry;  // entry가 객체면 entry.id, 아니면 그대로
-    const joinedAt = entry.joinedAt || null;
-
+  let membersText = state.members.slice(0, 40).map((id, i) => {
     const laneInfo = lanes?.[id] || { main: null, sub: [] };
     const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
     const subLane  = laneInfo.sub?.length
       ? laneInfo.sub.map(val => laneMap[val]).join(', ')
       : '없음';
     const tier     = tiers?.[id] || '없음';
-
-    // ⏰ 시간 붙이기
-    const timeText = joinedAt ? ` ${formatTime(joinedAt)}` : "";
-
-    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})${timeText}`;
+    return `${i + 1}. <@${id}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier})`;
   }).join('\n');
 
-  // 40명 초과 시 안내 멘트
-  if (members.length > 40) {
+  if (state.members.length > 40) {
     membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
@@ -176,15 +168,16 @@ function renderEmbed(state) {
   const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
 
   return {
-    color: 0x5865F2, // Discord 블루 💙
-    title: "📋 내전 참여자 현황",
-    description: membersText || "(없음)",
+    color: 0x5865F2,
+    title: `📋 [${isAram ? "칼바람" : "𝙡𝙤𝙡𝙫𝙚𝙡𝙮"}] 내전이 시작되었어요`,
+    description: `🕒 시작: ${startTime}\n\n참여자:\n${membersText || "(없음)"}`,
     fields: [
       { name: "❌ 막판", value: lastText, inline: false }
     ],
     timestamp: new Date()
   };
 }
+
 
 
 module.exports = renderEmbed;
