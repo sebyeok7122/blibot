@@ -576,46 +576,53 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   // -------------------
-  // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
-  // -------------------
-  if (interaction.isStringSelectMenu()) {
-    const { customId, values, user } = interaction;
+// 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
+// -------------------
+if (interaction.isStringSelectMenu()) {
+  const { customId, values, user } = interaction;
 
-    // customId 형식: lane_<userId> | sublane_<userId> | tier_<userId>
-    const [type, ownerId] = customId.split('_');
-    if (ownerId !== user.id) {
-      return interaction.reply({ content: '❌ 이 메뉴는 당신 전용입니다.', ephemeral: true });
-    }
-
-    // 현재 채널의 최신 내전 메시지 상태 찾기 (사용자가 방 여러 개에 있을 가능성 낮다고 가정)
-    const messages = await interaction.channel.messages.fetch({ limit: 30 });
-    const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
-    if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
-
-    const key = recruitMsg.id;
-    const state = roomState.get(key);
-
-    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
-
-    if (type === 'lane') {
-      state.lanes[user.id].main = values[0];
-    } else if (type === 'sublane') {
-      // 'none' 선택 시 빈 배열
-      state.lanes[user.id].sub = values[0] === 'none' ? [] : values;
-    } else if (type === 'tier') {
-      state.tiers[user.id] = values[0];
-    }
-
-    saveRooms();
-    backupRooms(state);
-
-    // 개인 ephemeral UI만 갱신
-    return interaction.update({
-      content: '🥨 개인 내전 설정이 저장되었습니다. (이 메시지는 당신에게만 보여요) 🥨',
-      components: interaction.message.components
+  // customId 형식: lane_<userId> | sublane_<userId> | tier_<userId>
+  const [type, ownerId] = customId.split('_');
+  if (ownerId !== user.id) {
+    return interaction.reply({
+      content: '❌ 이 메뉴는 당신 전용입니다.',
+      ephemeral: true
     });
   }
-}); // ← interactionCreate 닫기
+
+  // 현재 채널의 최신 내전 메시지 상태 찾기
+  const messages = await interaction.channel.messages.fetch({ limit: 30 });
+  const recruitMsg = messages.find(
+    m => m.author.id === interaction.client.user.id && roomState.has(m.id)
+  );
+  if (!recruitMsg) {
+    return interaction.reply({
+      content: '⚠️ 내전 방을 찾을 수 없습니다.',
+      ephemeral: true
+    });
+  }
+
+  const key = recruitMsg.id;
+  const state = roomState.get(key);
+
+  // 기본 구조 보장
+  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
+
+  if (type === 'lane') {
+    state.lanes[user.id].main = values[0];
+  } else if (type === 'sublane') {
+    // 'none' 선택 시 빈 배열
+    state.lanes[user.id].sub = values[0] === 'none' ? [] : values;
+  } else if (type === 'tier') {
+    state.tiers[user.id] = values[0];
+  }
+
+  saveRooms();
+  backupRooms(state);
+
+  // ✅ 선택 반영만 하고, UI는 그대로 유지
+  await interaction.deferUpdate();
+}
 
 // 로그인
 client.login(token);
