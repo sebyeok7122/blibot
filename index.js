@@ -444,7 +444,7 @@ client.on('interactionCreate', async (interaction) => {
 
 // ✅ 내전참여
 if (customId === 'join_game') {
-  await interaction.deferReply({ ephemeral: true });  // <- 응답 먼저 확보
+  await interaction.deferReply({ ephemeral: true });  // 응답 확보
 
   const isAlreadyIn = state.members.includes(user.id) || state.wait.has(user.id);
 
@@ -473,7 +473,7 @@ if (customId === 'join_game') {
     backupRooms(state);
   }
 
-  // ✅ 개인 설정창 생성 (항상 동일)
+  // ✅ 개인 설정창 생성
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId(`lane_${user.id}`)
     .setPlaceholder('주라인 선택')
@@ -517,9 +517,12 @@ if (customId === 'join_game') {
     );
 
   // 공용 임베드 갱신
-  await message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
+  await message.edit({
+    embeds: [renderEmbed(state, state.startTime, state.isAram)],
+    components: message.components
+  });
 
-  // ✅ deferReply 후에는 editReply 사용
+  // ✅ 개인 설정창 출력
   return interaction.editReply({
     content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
     components: [
@@ -528,20 +531,10 @@ if (customId === 'join_game') {
       new ActionRowBuilder().addComponents(tierSelect)
     ]
   });
-}
+} // 🔒 여기서 join_game 블록 끝
 
-  // ✅ 새 참여자는 reply
-  return interaction.reply({
-    content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다.🥨',
-    ephemeral: true,
-    components: [
-      new ActionRowBuilder().addComponents(mainLaneSelect),
-      new ActionRowBuilder().addComponents(subLaneSelect),
-      new ActionRowBuilder().addComponents(tierSelect)
-    ]
-  });
-}
-    // ❎ 내전취소
+
+   // ❎ 내전취소
     if (customId === 'leave_game') {
       const wasMember = state.members.includes(user.id);
       state.members = state.members.filter(m => m !== user.id);
