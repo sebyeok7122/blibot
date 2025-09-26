@@ -441,14 +441,17 @@ client.on('interactionCreate', async (interaction) => {
         embeds: [renderEmbed(state, state.startTime, state.isAram)],
         components: message.components
       });
+
 // ✅ 내전참여
 if (customId === 'join_game') {
+  await interaction.deferReply({ ephemeral: true });  // <- 응답 먼저 확보
+
   const isAlreadyIn = state.members.includes(user.id) || state.wait.has(user.id);
 
   if (!isAlreadyIn) {
     // 최대 40 제한
     if (state.members.length + state.wait.size >= 40) {
-      return interaction.reply({ content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.', ephemeral: true });
+      return interaction.editReply({ content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.' });
     }
 
     // 참여/대기 로직
@@ -516,18 +519,16 @@ if (customId === 'join_game') {
   // 공용 임베드 갱신
   await message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
 
-  // ✅ 이미 참여 상태면 reply 대신 followUp 사용
-  if (isAlreadyIn) {
-    return interaction.followUp({
-      content: '🥨 개인 내전 설정창입니다. 다시 수정할 수 있어요. 🥨',
-      ephemeral: true,
-      components: [
-        new ActionRowBuilder().addComponents(mainLaneSelect),
-        new ActionRowBuilder().addComponents(subLaneSelect),
-        new ActionRowBuilder().addComponents(tierSelect)
-      ]
-    });
-  }
+  // ✅ deferReply 후에는 editReply 사용
+  return interaction.editReply({
+    content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
+    components: [
+      new ActionRowBuilder().addComponents(mainLaneSelect),
+      new ActionRowBuilder().addComponents(subLaneSelect),
+      new ActionRowBuilder().addComponents(tierSelect)
+    ]
+  });
+}
 
   // ✅ 새 참여자는 reply
   return interaction.reply({
