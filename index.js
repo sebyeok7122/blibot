@@ -576,8 +576,7 @@ if (interaction.isChatInputCommand()) {
       }
     }
   }
-
- // -------------------
+// -------------------
 // 2) 버튼 핸들러 (4가지 버튼)
 // -------------------
 if (interaction.isButton()) {
@@ -589,7 +588,7 @@ if (interaction.isButton()) {
   }
   const state = roomState.get(key);
 
-  // 공용 임베드 갱신 함수
+  // embed 갱신 공용 함수
   const updateMessage = async () => {
     await message.edit({
       embeds: [renderEmbed(state, state.startTime, state.isAram)],
@@ -597,29 +596,25 @@ if (interaction.isButton()) {
     });
   };
 
-  // ✅ 내전참여 (UI만 띄움)
+  // ✅ 내전 참여 (UI 띄움)
   if (customId === 'join_game') {
     await interaction.deferReply({ ephemeral: true });
 
-    // 주 라인 선택
     const mainLaneSelect = new StringSelectMenuBuilder()
       .setCustomId('select_main_lane')
       .setPlaceholder('주 라인 선택')
       .addOptions(laneOptions);
 
-    // 부 라인 선택
     const subLaneSelect = new StringSelectMenuBuilder()
       .setCustomId('select_sub_lane')
       .setPlaceholder('부 라인 선택')
       .addOptions(laneOptions);
 
-    // 티어 선택
     const tierSelect = new StringSelectMenuBuilder()
       .setCustomId('select_tier')
       .setPlaceholder('티어 선택')
       .addOptions(tierOptions);
 
-    // 확인 버튼
     const confirmButton = new ButtonBuilder()
       .setCustomId(`confirm_join_${user.id}`)
       .setLabel('✅ 확인')
@@ -637,50 +632,37 @@ if (interaction.isButton()) {
     });
   }
 
-  // ✅ confirm_join_ 버튼 처리 (수정)
+  // ✅ confirm_join_ 처리 (수정)
   if (customId.startsWith('confirm_join_')) {
     const uid = customId.replace('confirm_join_', '');
 
-    // interaction pending 방지
     await interaction.deferUpdate();
 
-    // 선택 메뉴 값 가져오기
     const lanes = state.lanes[uid] || { main: null, sub: [] };
     const tier  = state.tiers[uid];
 
-    // 주/부라인 & 티어 검증
-    if (!lanes.main || !lanes.sub || !tier ||
-        lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
+    if (!lanes.main || !lanes.sub || !tier || lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
       return interaction.followUp({
         content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌',
         ephemeral: true
       });
     }
 
-    // state에 값 반영
     state.lanes[uid] = lanes;
     state.tiers[uid] = tier;
 
-    // 최종 참여 반영
     if (!state.members.includes(uid) && !state.wait.has(uid)) {
-      if (state.members.length >= 40) {
-        state.wait.add(uid);
-      } else {
-        state.members.push(uid);
-      }
+      if (state.members.length >= 40) state.wait.add(uid);
+      else state.members.push(uid);
     }
 
-    // 참여 시간 기록
     state.joinedAt[uid] = Date.now();
 
-    // 저장 & 백업
     saveRooms();
     backupRooms(state);
 
-    // embed 갱신
     await updateMessage();
 
-    // ephemeral 안내 메시지
     return interaction.followUp({
       content: `✅ ${interaction.user.username} 님 내전에 참여 완료!`,
       ephemeral: true
@@ -689,12 +671,13 @@ if (interaction.isButton()) {
 
   // ❎ 내전취소 + 대기자 승급
   if (customId === 'leave_game') {
+    await interaction.deferUpdate();
+
     const wasMember = state.members.includes(user.id);
     state.members = state.members.filter(m => m !== user.id);
     state.wait.delete(user.id);
     state.last.delete(user.id);
 
-    // 빈자리 생겼고 대기자가 있다면 1명 승급
     if (wasMember && state.wait.size > 0) {
       const next = state.wait.values().next().value;
       state.wait.delete(next);
@@ -708,24 +691,22 @@ if (interaction.isButton()) {
 
   // ⛔ 내전막판
   if (customId === 'last_call') {
-    const wasMember = state.members.includes(user.id);
+    await interaction.deferUpdate();
 
-    if (wasMember) {
-      // 참여자 → 막판 이동
-      state.last.add(user.id);
+    if (state.members.includes(user.id)) {
       state.members = state.members.filter(m => m !== user.id);
-
-      // 빈자리만큼 대기자에서 승급
-      if (state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
+      state.last.add(user.id);
     }
+
+    if (state.wait.size > 0) {
+      const next = state.wait.values().next().value;
+      state.wait.delete(next);
+      state.members.push(next);
+    }
+
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
   }
 }
 
