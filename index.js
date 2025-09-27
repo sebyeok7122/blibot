@@ -778,7 +778,8 @@ if (interaction.isChatInputCommand()) {
       new ActionRowBuilder().addComponents(subLaneSelect),
       new ActionRowBuilder().addComponents(tierSelect)
     ]
-  });
+ });
+}
 
    // ❎ 내전취소
     if (customId === 'leave_game') {
