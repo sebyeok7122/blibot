@@ -494,6 +494,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: '⚠️ 해당 유저는 막판 명단에 없습니다.', ephemeral: true });
       }
     }
+  }   // ✅ 이거 추가 → /참여자삭제 블록 닫기
 
     // -------------------
     // /참여자삭제
