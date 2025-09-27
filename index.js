@@ -119,10 +119,11 @@ async function restoreMessages() {
         const msg = await channel.messages.fetch(msgId).catch(() => null);
         if (msg) {
           console.log(`✅ 메시지 ${msgId} 복구 완료`);
-                 await msg.edit({
+          await msg.edit({
             embeds: [renderEmbed(state, state.startTime, state.isAram)],
             components: msg.components
-        });
+          });
+        }
       }
     } catch (e) {
       console.error("복구 실패:", e);
