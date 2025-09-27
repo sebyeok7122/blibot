@@ -285,12 +285,13 @@ function renderEmbed(state, startTime, isAram) {
 module.exports = renderEmbed;
 
 client.on('interactionCreate', async (interaction) => {
-// -------------------
-// 1) 슬래시 명령어
-// -------------------
-if (interaction.isChatInputCommand()) {
-  const { commandName, options, user } = interaction;
-  const userId = user.id;
+
+  // -------------------
+  // 1) 슬래시 명령어 처리
+  // -------------------
+  if (interaction.isChatInputCommand()) {
+    const { commandName, options, user } = interaction;
+    const userId = user.id;
 
   // 계정등록 (Riot API 검증 + 없는 계정 필터링 + 정식 표기 저장)
   if (commandName === '계정등록') {
@@ -423,74 +424,30 @@ if (interaction.isChatInputCommand()) {
     // /내전 & /칼바람내전
     // -------------------
     if (commandName === '내전' || commandName === '칼바람내전') {
-      // ✅ 관리자 + 도우미 권한 체크
-      const allowedRoles = [
-        '689438958140260361', // 관리자 역할 ID
-        '1415895023102197830' // 도우미 역할 ID
-      ];
-
+      const allowedRoles = ['689438958140260361', '1415895023102197830'];
       if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({
-          content: '🤍 내전 모집은 관리자 혹은 도우미에게 문의주세요 🤍',
-          ephemeral: true
-        });
+        return interaction.reply({ content: '🤍 내전 모집은 관리자/도우미 문의', ephemeral: true });
       }
 
       const startTime = options.getString('시간');
       const isAram = commandName === '칼바람내전';
 
-     // ✅ 버튼 정의 (3가지)
-        const joinBtn = new ButtonBuilder()
-       .setCustomId('join_game')
-       .setLabel('✅ 내전참여')
-       .setStyle(ButtonStyle.Success);
+      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
+      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
+      const lastBtn = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
 
-       const leaveBtn = new ButtonBuilder()
-       .setCustomId('leave_game')
-       .setLabel('❎ 내전취소')
-       .setStyle(ButtonStyle.Danger);
+      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
-      const lastBtn = new ButtonBuilder()
-      .setCustomId('last_call')
-      .setLabel('⛔ 내전막판')
-      .setStyle(ButtonStyle.Primary);
-
-   // ✅ 버튼 묶음
-       const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
-
- // ✅ embed 사용 (버튼만 부착)
       const replyMsg = await interaction.reply({
-        embeds: [
-          renderEmbed(
-            {
-              members: [],
-              lanes: {},
-              tiers: {},
-              last: new Set(),
-              wait: new Set(),
-              joinedAt: {}
-            },
-            startTime,
-            isAram
-          )
-        ],
+        embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
         components: [row],
         fetchReply: true
       });
 
-      // 방 상태 저장
-      roomState.set(replyMsg.id, { 
-        members: [], 
-        lanes: {}, 
-        tiers: {}, 
-        last: new Set(), 
-        wait: new Set(),
-        startTime,   // ✅ 시작 시간 저장
-        isAram,      // ✅ 칼바람 여부 저장
-        joinedAt: {} // ✅ 참여 시간 기록용
-      });
+      roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
       saveRooms();
     }
+  }
 
     // -------------------
     // /딥롤방연결
@@ -576,138 +533,110 @@ if (interaction.isChatInputCommand()) {
       }
     }
   }
-// -------------------
-// 2) 버튼 핸들러 (4가지 버튼)
-// -------------------
-if (interaction.isButton()) {
-  const { customId, user, message } = interaction;
-  const key = message.id;
 
-  if (!roomState.has(key)) {
-    roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {}, startTime: null, isAram: false });
-  }
-  const state = roomState.get(key);
+  // -------------------
+  // 2) 버튼 핸들러
+  // -------------------
+  if (interaction.isButton()) {
+    const { customId, user, message } = interaction;
+    const key = message.id;
 
-  // embed 갱신 공용 함수
-  const updateMessage = async () => {
-    await message.edit({
-      embeds: [renderEmbed(state, state.startTime, state.isAram)],
-      components: message.components
-    });
-  };
+    if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {}, startTime: null, isAram: false });
+    const state = roomState.get(key);
 
-  // ✅ 내전 참여 (UI 띄움)
-  if (customId === 'join_game') {
-    await interaction.deferReply({ ephemeral: true });
+    const updateMessage = async () => {
+      await message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
+    };
 
-    const mainLaneSelect = new StringSelectMenuBuilder()
-      .setCustomId('select_main_lane')
-      .setPlaceholder('주 라인 선택')
-      .addOptions(laneOptions);
+    // ✅ 내전 참여 버튼
+    if (customId === 'join_game') {
+      await interaction.deferReply({ ephemeral: true });
 
-    const subLaneSelect = new StringSelectMenuBuilder()
-      .setCustomId('select_sub_lane')
-      .setPlaceholder('부 라인 선택')
-      .addOptions(laneOptions);
+      const mainLaneSelect = new StringSelectMenuBuilder().setCustomId('select_main_lane').setPlaceholder('주 라인 선택').addOptions(laneOptions);
+      const subLaneSelect = new StringSelectMenuBuilder().setCustomId('select_sub_lane').setPlaceholder('부 라인 선택').addOptions(laneOptions);
+      const tierSelect = new StringSelectMenuBuilder().setCustomId('select_tier').setPlaceholder('티어 선택').addOptions(tierOptions);
+      const confirmButton = new ButtonBuilder().setCustomId(`confirm_join_${user.id}`).setLabel('✅ 확인').setStyle(ButtonStyle.Success);
 
-    const tierSelect = new StringSelectMenuBuilder()
-      .setCustomId('select_tier')
-      .setPlaceholder('티어 선택')
-      .addOptions(tierOptions);
-
-    const confirmButton = new ButtonBuilder()
-      .setCustomId(`confirm_join_${user.id}`)
-      .setLabel('✅ 확인')
-      .setStyle(ButtonStyle.Success);
-
-    const row1 = new ActionRowBuilder().addComponents(mainLaneSelect);
-    const row2 = new ActionRowBuilder().addComponents(subLaneSelect);
-    const row3 = new ActionRowBuilder().addComponents(tierSelect);
-    const row4 = new ActionRowBuilder().addComponents(confirmButton);
-
-    return interaction.editReply({
-      content: '🎮 내전에 참여하려면 **주/부 라인 + 티어**를 선택하고 확인을 눌러주세요!',
-      components: [row1, row2, row3, row4],
-      ephemeral: true
-    });
-  }
-
-  // ✅ confirm_join_ 처리 (수정)
-  if (customId.startsWith('confirm_join_')) {
-    const uid = customId.replace('confirm_join_', '');
-
-    await interaction.deferUpdate();
-
-    const lanes = state.lanes[uid] || { main: null, sub: [] };
-    const tier  = state.tiers[uid];
-
-    if (!lanes.main || !lanes.sub || !tier || lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
-      return interaction.followUp({
-        content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌',
+      return interaction.editReply({
+        content: '🎮 내전에 참여하려면 주/부 라인 + 티어 선택 후 확인!',
+        components: [
+          new ActionRowBuilder().addComponents(mainLaneSelect),
+          new ActionRowBuilder().addComponents(subLaneSelect),
+          new ActionRowBuilder().addComponents(tierSelect),
+          new ActionRowBuilder().addComponents(confirmButton)
+        ],
         ephemeral: true
       });
     }
 
-    state.lanes[uid] = lanes;
-    state.tiers[uid] = tier;
+    // ✅ confirm_join_
+    if (customId.startsWith('confirm_join_')) {
+      const uid = customId.replace('confirm_join_', '');
+      await interaction.deferUpdate();
 
-    if (!state.members.includes(uid) && !state.wait.has(uid)) {
-      if (state.members.length >= 40) state.wait.add(uid);
-      else state.members.push(uid);
+      const lanes = state.lanes[uid] || { main: null, sub: [] };
+      const tier = state.tiers[uid];
+
+      if (!lanes.main || !lanes.sub || !tier || lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
+        return interaction.followUp({ content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌', ephemeral: true });
+      }
+
+      state.lanes[uid] = lanes;
+      state.tiers[uid] = tier;
+
+      if (!state.members.includes(uid) && !state.wait.has(uid)) {
+        if (state.members.length >= 40) state.wait.add(uid);
+        else state.members.push(uid);
+      }
+
+      state.joinedAt[uid] = Date.now();
+      saveRooms();
+      backupRooms(state);
+
+      await updateMessage();
+      return interaction.followUp({ content: `✅ ${interaction.user.username} 내전 참여 완료!`, ephemeral: true });
     }
 
-    state.joinedAt[uid] = Date.now();
+    // ❎ 내전취소
+    if (customId === 'leave_game') {
+      await interaction.deferUpdate();
 
-    saveRooms();
-    backupRooms(state);
-
-    await updateMessage();
-
-    return interaction.followUp({
-      content: `✅ ${interaction.user.username} 님 내전에 참여 완료!`,
-      ephemeral: true
-    });
-  }
-
-  // ❎ 내전취소 + 대기자 승급
-  if (customId === 'leave_game') {
-    await interaction.deferUpdate();
-
-    const wasMember = state.members.includes(user.id);
-    state.members = state.members.filter(m => m !== user.id);
-    state.wait.delete(user.id);
-    state.last.delete(user.id);
-
-    if (wasMember && state.wait.size > 0) {
-      const next = state.wait.values().next().value;
-      state.wait.delete(next);
-      state.members.push(next);
-    }
-
-    saveRooms();
-    backupRooms(state);
-    return updateMessage();
-  }
-
-  // ⛔ 내전막판
-  if (customId === 'last_call') {
-    await interaction.deferUpdate();
-
-    if (state.members.includes(user.id)) {
+      const wasMember = state.members.includes(user.id);
       state.members = state.members.filter(m => m !== user.id);
-      state.last.add(user.id);
+      state.wait.delete(user.id);
+      state.last.delete(user.id);
+
+      if (wasMember && state.wait.size > 0) {
+        const next = state.wait.values().next().value;
+        state.wait.delete(next);
+        state.members.push(next);
+      }
+
+      saveRooms();
+      backupRooms(state);
+      return updateMessage();
     }
 
-    if (state.wait.size > 0) {
-      const next = state.wait.values().next().value;
-      state.wait.delete(next);
-      state.members.push(next);
-    }
+    // ⛔ 내전막판
+    if (customId === 'last_call') {
+      await interaction.deferUpdate();
 
-    saveRooms();
-    backupRooms(state);
-    return updateMessage();
-   }
+      if (state.members.includes(user.id)) {
+        state.members = state.members.filter(m => m !== user.id);
+        state.last.add(user.id);
+      }
+
+      if (state.wait.size > 0) {
+        const next = state.wait.values().next().value;
+        state.wait.delete(next);
+        state.members.push(next);
+      }
+
+      saveRooms();
+      backupRooms(state);
+      return updateMessage();
+    }
+  }
 
       // ✅ 로그 찍기
       try {
@@ -884,54 +813,30 @@ if (customId === 'last_call') {
 }
 
   // -------------------
-// 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
-// -------------------
-if (interaction.isStringSelectMenu()) {
-  const { customId, values, user } = interaction;
+  // 3) 선택 메뉴 핸들러
+  // -------------------
+  if (interaction.isStringSelectMenu()) {
+    const { customId, values, user } = interaction;
+    const [type, ownerId] = customId.split('_');
+    if (ownerId !== user.id) return interaction.reply({ content: '❌ 이 메뉴는 당신 전용입니다.', ephemeral: true });
 
-  // customId 형식: lane_<userId> | sublane_<userId> | tier_<userId>
-  const [type, ownerId] = customId.split('_');
-  if (ownerId !== user.id) {
-    return interaction.reply({
-      content: '❌ 이 메뉴는 당신 전용입니다.',
-      ephemeral: true
-    });
+    const messages = await interaction.channel.messages.fetch({ limit: 30 });
+    const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+    if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+
+    const key = recruitMsg.id;
+    const state = roomState.get(key);
+    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
+
+    if (type === 'lane') state.lanes[user.id].main = values[0];
+    else if (type === 'sublane') state.lanes[user.id].sub = values[0] === 'none' ? [] : values;
+    else if (type === 'tier') state.tiers[user.id] = values[0];
+
+    saveRooms();
+    backupRooms(state);
+    await interaction.deferUpdate();
   }
-
-  // 현재 채널의 최신 내전 메시지 상태 찾기
-  const messages = await interaction.channel.messages.fetch({ limit: 30 });
-  const recruitMsg = messages.find(
-    m => m.author.id === interaction.client.user.id && roomState.has(m.id)
-  );
-  if (!recruitMsg) {
-    return interaction.reply({
-      content: '⚠️ 내전 방을 찾을 수 없습니다.',
-      ephemeral: true
-    });
-  }
-
-  const key = recruitMsg.id;
-  const state = roomState.get(key);
-
-  // 기본 구조 보장
-  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
-
-  if (type === 'lane') {
-    state.lanes[user.id].main = values[0];
-  } else if (type === 'sublane') {
-    // 'none' 선택 시 빈 배열
-    state.lanes[user.id].sub = values[0] === 'none' ? [] : values;
-  } else if (type === 'tier') {
-    state.tiers[user.id] = values[0];
-  }
-
-  saveRooms();
-  backupRooms(state);
-
-  // ✅ 선택 반영만 하고, UI는 그대로 유지
-  await interaction.deferUpdate();
- }
-}); // ← interactionCreate 닫기
+});
 
 // 로그인
 client.login(token);
