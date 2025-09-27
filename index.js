@@ -522,295 +522,137 @@ client.on('interactionCreate', async (interaction) => {
         state.wait.delete(target.id);
         removed = true;
       }
+// -------------------
+// 2) 버튼 핸들러 (중복 제거·정리본)
+// -------------------
+if (interaction.isButton()) {
+  const { customId, user, message } = interaction;
+  const key = message.id;
 
-      if (removed) {
-        saveRooms();
-        backupRooms(state);
-        await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
-        return interaction.reply(`✅ <@${target.id}> 님을 참여자/대기자 명단에서 삭제했습니다.`);
-      } else {
-        return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
-      }
-    }
+  // 상태 초기화
+  if (!roomState.has(key)) {
+    roomState.set(key, {
+      members: [],
+      lanes: {},
+      tiers: {},
+      last: new Set(),
+      wait: new Set(),
+      joinedAt: {},
+      startTime: null,
+      isAram: false
+    });
+  }
+  const state = roomState.get(key);
+
+  // 공용 메시지 갱신 함수
+  const updateMessage = async () => {
+    await message.edit({
+      embeds: [renderEmbed(state, state.startTime, state.isAram)],
+      components: message.components
+    });
+  };
+
+  // ✅ 내전 참여 버튼
+  if (customId === 'join_game') {
+    await interaction.deferReply({ ephemeral: true });
+
+    const mainLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_main_lane')
+      .setPlaceholder('주 라인 선택')
+      .addOptions(laneOptions);
+    const subLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_sub_lane')
+      .setPlaceholder('부 라인 선택')
+      .addOptions(laneOptions);
+    const tierSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_tier')
+      .setPlaceholder('티어 선택')
+      .addOptions(tierOptions);
+    const confirmButton = new ButtonBuilder()
+      .setCustomId(`confirm_join_${user.id}`)
+      .setLabel('✅ 확인')
+      .setStyle(ButtonStyle.Success);
+
+    return interaction.editReply({
+      content: '🎮 내전에 참여하려면 주/부 라인 + 티어를 정확히 선택해 주세요!',
+      components: [
+        new ActionRowBuilder().addComponents(mainLaneSelect),
+        new ActionRowBuilder().addComponents(subLaneSelect),
+        new ActionRowBuilder().addComponents(tierSelect),
+        new ActionRowBuilder().addComponents(confirmButton)
+      ],
+      ephemeral: true
+    });
   }
 
-  // -------------------
-  // 2) 버튼 핸들러
-  // -------------------
-  if (interaction.isButton()) {
-    const { customId, user, message } = interaction;
-    const key = message.id;
+  // ✅ confirm_join_
+  if (customId.startsWith('confirm_join_')) {
+    const uid = customId.replace('confirm_join_', '');
+    await interaction.deferUpdate();
 
-    if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {}, startTime: null, isAram: false });
-    const state = roomState.get(key);
+    const lanes = state.lanes[uid] || { main: null, sub: [] };
+    const tier = state.tiers[uid];
 
-    const updateMessage = async () => {
-      await message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
-    };
-
-    // ✅ 내전 참여 버튼
-    if (customId === 'join_game') {
-      await interaction.deferReply({ ephemeral: true });
-
-      const mainLaneSelect = new StringSelectMenuBuilder().setCustomId('select_main_lane').setPlaceholder('주 라인 선택').addOptions(laneOptions);
-      const subLaneSelect = new StringSelectMenuBuilder().setCustomId('select_sub_lane').setPlaceholder('부 라인 선택').addOptions(laneOptions);
-      const tierSelect = new StringSelectMenuBuilder().setCustomId('select_tier').setPlaceholder('티어 선택').addOptions(tierOptions);
-      const confirmButton = new ButtonBuilder().setCustomId(`confirm_join_${user.id}`).setLabel('✅ 확인').setStyle(ButtonStyle.Success);
-
-      return interaction.editReply({
-        content: '🎮 내전에 참여하려면 주/부 라인 + 티어 선택 후 확인!',
-        components: [
-          new ActionRowBuilder().addComponents(mainLaneSelect),
-          new ActionRowBuilder().addComponents(subLaneSelect),
-          new ActionRowBuilder().addComponents(tierSelect),
-          new ActionRowBuilder().addComponents(confirmButton)
-        ],
-        ephemeral: true
-      });
+    if (!lanes.main || !lanes.sub || !tier || lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
+      return interaction.followUp({ content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌', ephemeral: true });
     }
 
-    // ✅ confirm_join_
-    if (customId.startsWith('confirm_join_')) {
-      const uid = customId.replace('confirm_join_', '');
-      await interaction.deferUpdate();
+    state.lanes[uid] = lanes;
+    state.tiers[uid] = tier;
 
-      const lanes = state.lanes[uid] || { main: null, sub: [] };
-      const tier = state.tiers[uid];
-
-      if (!lanes.main || !lanes.sub || !tier || lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
-        return interaction.followUp({ content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌', ephemeral: true });
-      }
-
-      state.lanes[uid] = lanes;
-      state.tiers[uid] = tier;
-
-      if (!state.members.includes(uid) && !state.wait.has(uid)) {
-        if (state.members.length >= 40) state.wait.add(uid);
-        else state.members.push(uid);
-      }
-
-      state.joinedAt[uid] = Date.now();
-      saveRooms();
-      backupRooms(state);
-
-      await updateMessage();
-      return interaction.followUp({ content: `✅ ${interaction.user.username} 내전 참여 완료!`, ephemeral: true });
+    if (!state.members.includes(uid) && !state.wait.has(uid)) {
+      if (state.members.length >= 40) state.wait.add(uid);
+      else state.members.push(uid);
     }
 
-    // ❎ 내전취소
-    if (customId === 'leave_game') {
-      await interaction.deferUpdate();
+    state.joinedAt[uid] = Date.now();
+    saveRooms();
+    backupRooms(state);
 
-      const wasMember = state.members.includes(user.id);
-      state.members = state.members.filter(m => m !== user.id);
-      state.wait.delete(user.id);
-      state.last.delete(user.id);
-
-      if (wasMember && state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
-    }
-
-    // ⛔ 내전막판
-    if (customId === 'last_call') {
-      await interaction.deferUpdate();
-
-      if (state.members.includes(user.id)) {
-        state.members = state.members.filter(m => m !== user.id);
-        state.last.add(user.id);
-      }
-
-      if (state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
-    }
+    await updateMessage();
+    return interaction.followUp({ content: `✅ ${interaction.user.username} 내전 참여 완료!`, ephemeral: true });
   }
 
-      // ✅ 로그 찍기
-      try {
-        const member = await interaction.guild.members.fetch(uid);
-        console.log(`✅ 내전참여 확정: ${member.displayName} (${member.user.tag})`);
-      } catch (err) {
-        console.log(`✅ 내전참여 확정: <@${uid}> (닉네임 불러오기 실패)`);
-      }
+  // ❎ 내전취소
+  if (customId === 'leave_game') {
+    await interaction.deferUpdate();
 
-      return interaction.followUp({
-        content: `✅ ${interaction.user.displayName} 님 내전에 참여 완료!`,
-        ephemeral: true
-      });
-    }
-
-    // ❎ 내전취소 + 대기자 승급 반영
-    if (customId === 'leave_game') {
-      const wasMember = state.members.includes(user.id);
-      state.members = state.members.filter(m => m !== user.id);
-      state.wait.delete(user.id);
-      state.last.delete(user.id);
-
-      // 빈자리 생겼고 대기자가 있다면 1명 승급
-      if (wasMember && state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-
-        // ✅ 승급 시 라인/티어 그대로 유지
-        const mainLane = state.lanes[next]?.main || '없음';
-        const subLane  = state.lanes[next]?.sub  || '없음';
-        const tier     = state.tiers[next]       || '없음';
-
-        try {
-          const promoted = await interaction.guild.members.fetch(next);
-          console.log(`🔼 대기자 승급: ${promoted.displayName} (${promoted.user.tag}) → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
-        } catch (err) {
-          console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
-        }
-      }
-
-      // ✅ 로그 (취소한 사람)
-      try {
-        const member = await interaction.guild.members.fetch(user.id);
-        console.log(`❎ 내전취소: ${member.displayName} (${member.user.tag})`);
-      } catch (err) {
-        console.log(`❎ 내전취소: <@${user.id}> (닉네임 불러오기 실패)`);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
-
-  // ✅ 개인 설정창 생성
-  const mainLaneSelect = new StringSelectMenuBuilder()
-    .setCustomId(`lane_${user.id}`)
-    .setPlaceholder('주라인 선택')
-    .addOptions(
-      { label: '탑', value: 'top', default: state.lanes[user.id]?.main === 'top' },
-      { label: '정글', value: 'jungle', default: state.lanes[user.id]?.main === 'jungle' },
-      { label: '미드', value: 'mid', default: state.lanes[user.id]?.main === 'mid' },
-      { label: '원딜', value: 'adc', default: state.lanes[user.id]?.main === 'adc' },
-      { label: '서폿', value: 'support', default: state.lanes[user.id]?.main === 'support' }
-    );
-
-  const subLaneSelect = new StringSelectMenuBuilder()
-    .setCustomId(`sublane_${user.id}`)
-    .setPlaceholder('부라인 선택 (여러 개 가능)')
-    .setMinValues(1)
-    .setMaxValues(5)
-    .addOptions(
-      { label: '없음', value: 'none', default: (state.lanes[user.id]?.sub?.length ?? 0) === 0 },
-      { label: '탑', value: 'top', default: state.lanes[user.id]?.sub?.includes('top') },
-      { label: '정글', value: 'jungle', default: state.lanes[user.id]?.sub?.includes('jungle') },
-      { label: '미드', value: 'mid', default: state.lanes[user.id]?.sub?.includes('mid') },
-      { label: '원딜', value: 'adc', default: state.lanes[user.id]?.sub?.includes('adc') },
-      { label: '서폿', value: 'support', default: state.lanes[user.id]?.sub?.includes('support') }
-    );
-
-  const tierSelect = new StringSelectMenuBuilder()
-    .setCustomId(`tier_${user.id}`)
-    .setPlaceholder('14~15최고티어')
-    .addOptions(
-      { label: '아이언', value: 'I', default: state.tiers[user.id] === 'I' },
-      { label: '브론즈', value: 'B', default: state.tiers[user.id] === 'B' },
-      { label: '실버', value: 'S', default: state.tiers[user.id] === 'S' },
-      { label: '골드', value: 'G', default: state.tiers[user.id] === 'G' },
-      { label: '플래티넘', value: 'P', default: state.tiers[user.id] === 'P' },
-      { label: '에메랄드', value: 'E', default: state.tiers[user.id] === 'E' },
-      { label: '다이아', value: 'D', default: state.tiers[user.id] === 'D' },
-      { label: '마스터', value: 'M', default: state.tiers[user.id] === 'M' },
-      { label: '그마', value: 'GM', default: state.tiers[user.id] === 'GM' },
-      { label: '챌린저', value: 'C', default: state.tiers[user.id] === 'C' },
-      { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
-    );
-
-  // 공용 임베드 갱신
-  await message.edit({
-    embeds: [renderEmbed(state, state.startTime, state.isAram)],
-    components: message.components
-  });
-
-  // ✅ 개인 설정창 출력
-  return interaction.editReply({
-    content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
-    components: [
-      new ActionRowBuilder().addComponents(mainLaneSelect),
-      new ActionRowBuilder().addComponents(subLaneSelect),
-      new ActionRowBuilder().addComponents(tierSelect)
-    ]
- });
-}
-
-   // ❎ 내전취소
-    if (customId === 'leave_game') {
-      const wasMember = state.members.includes(user.id);
-      state.members = state.members.filter(m => m !== user.id);
-      state.wait.delete(user.id);
-      state.last.delete(user.id);
-
-      // 빈자리 생겼고 대기자가 있다면 1명 승급
-      if (wasMember && state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
-    }
-
-   // ⛔ 내전막판
-if (customId === 'last_call') {
-  const wasMember = state.members.includes(user.id);
-
-  if (wasMember) {
-    // 참여자 → 막판 이동
-    state.last.add(user.id);
+    const wasMember = state.members.includes(user.id);
     state.members = state.members.filter(m => m !== user.id);
+    state.wait.delete(user.id);
+    state.last.delete(user.id);
 
-    // 빈자리만큼 대기자에서 승급
+    if (wasMember && state.wait.size > 0) {
+      const next = state.wait.values().next().value;
+      state.wait.delete(next);
+      state.members.push(next);
+    }
+
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
+  }
+
+  // ⛔ 내전막판
+  if (customId === 'last_call') {
+    await interaction.deferUpdate();
+
+    if (state.members.includes(user.id)) {
+      state.members = state.members.filter(m => m !== user.id);
+      state.last.add(user.id);
+    }
+
     if (state.wait.size > 0) {
       const next = state.wait.values().next().value;
       state.wait.delete(next);
       state.members.push(next);
-
-      // ✅ 승급 로그 찍기
-      const mainLane = state.lanes[next]?.main || '없음';
-      const subLane  = state.lanes[next]?.sub  || '없음';
-      const tier     = state.tiers[next]       || '없음';
-
-      try {
-        const promoted = await interaction.guild.members.fetch(next);
-        console.log(`🔼 대기자 승급: ${promoted.displayName} (${promoted.user.tag}) → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
-      } catch (err) {
-        console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
-      }
     }
 
-    // ✅ 막판 로그
-    try {
-      const member = await interaction.guild.members.fetch(user.id);
-      console.log(`⛔ 내전막판: ${member.displayName} (${member.user.tag})`);
-    } catch (err) {
-      console.log(`⛔ 내전막판: <@${user.id}> (닉네임 불러오기 실패)`);
-    }
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
   }
-
-     saveRooms();
-     backupRooms(state);
-     return updateMessage();
-   }
-}
+} // ← 버튼 핸들러 끝
 
   // -------------------
   // 3) 선택 메뉴 핸들러
