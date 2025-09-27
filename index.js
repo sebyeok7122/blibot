@@ -577,95 +577,157 @@ if (interaction.isChatInputCommand()) {
     }
   }
 
-  // -------------------
-  // 2) 버튼 핸들러 (4가지 버튼)
-  // -------------------
-  if (interaction.isButton()) {
-    const { customId, user, message } = interaction;
-    const key = message.id;
+ // -------------------
+// 2) 버튼 핸들러 (4가지 버튼)
+// -------------------
+if (interaction.isButton()) {
+  const { customId, user, message } = interaction;
+  const key = message.id;
 
-    if (!roomState.has(key)) {
-      roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} });
-    }
-    const state = roomState.get(key);
+  if (!roomState.has(key)) {
+    roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {}, startTime: null, isAram: false });
+  }
+  const state = roomState.get(key);
 
-    // 공용 임베드 갱신 함수
-    const updateMessage = () =>
-      interaction.update({ 
-        embeds: [renderEmbed(state, state.startTime, state.isAram)],
-        components: message.components
-      });
+  // 공용 임베드 갱신 함수
+  const updateMessage = async () => {
+    await message.edit({
+      embeds: [renderEmbed(state, state.startTime, state.isAram)],
+      components: message.components
+    });
+  };
 
-    // ✅ 내전참여 (UI만 띄움)
-    if (customId === 'join_game') {
-      await interaction.deferReply({ ephemeral: true });
+  // ✅ 내전참여 (UI만 띄움)
+  if (customId === 'join_game') {
+    await interaction.deferReply({ ephemeral: true });
 
-      // 주 라인 선택
-      const mainLaneSelect = new StringSelectMenuBuilder()
-        .setCustomId('select_main_lane')
-        .setPlaceholder('주 라인 선택')
-        .addOptions(laneOptions);
+    // 주 라인 선택
+    const mainLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_main_lane')
+      .setPlaceholder('주 라인 선택')
+      .addOptions(laneOptions);
 
-      // 부 라인 선택
-      const subLaneSelect = new StringSelectMenuBuilder()
-        .setCustomId('select_sub_lane')
-        .setPlaceholder('부 라인 선택')
-        .addOptions(laneOptions);
+    // 부 라인 선택
+    const subLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_sub_lane')
+      .setPlaceholder('부 라인 선택')
+      .addOptions(laneOptions);
 
-      // 티어 선택
-      const tierSelect = new StringSelectMenuBuilder()
-        .setCustomId('select_tier')
-        .setPlaceholder('티어 선택')
-        .addOptions(tierOptions);
+    // 티어 선택
+    const tierSelect = new StringSelectMenuBuilder()
+      .setCustomId('select_tier')
+      .setPlaceholder('티어 선택')
+      .addOptions(tierOptions);
 
-      // 확인 버튼
-      const confirmButton = new ButtonBuilder()
-        .setCustomId(`confirm_join_${user.id}`)
-        .setLabel('✅ 확인')
-        .setStyle(ButtonStyle.Success);
+    // 확인 버튼
+    const confirmButton = new ButtonBuilder()
+      .setCustomId(`confirm_join_${user.id}`)
+      .setLabel('✅ 확인')
+      .setStyle(ButtonStyle.Success);
 
-      const row1 = new ActionRowBuilder().addComponents(mainLaneSelect);
-      const row2 = new ActionRowBuilder().addComponents(subLaneSelect);
-      const row3 = new ActionRowBuilder().addComponents(tierSelect);
-      const row4 = new ActionRowBuilder().addComponents(confirmButton);
+    const row1 = new ActionRowBuilder().addComponents(mainLaneSelect);
+    const row2 = new ActionRowBuilder().addComponents(subLaneSelect);
+    const row3 = new ActionRowBuilder().addComponents(tierSelect);
+    const row4 = new ActionRowBuilder().addComponents(confirmButton);
 
-      return interaction.editReply({
-        content: '🎮 내전에 참여하려면 **주/부 라인 + 티어**를 선택하고 확인을 눌러주세요!',
-        components: [row1, row2, row3, row4],
+    return interaction.editReply({
+      content: '🎮 내전에 참여하려면 **주/부 라인 + 티어**를 선택하고 확인을 눌러주세요!',
+      components: [row1, row2, row3, row4],
+      ephemeral: true
+    });
+  }
+
+  // ✅ confirm_join_ 버튼 처리 (수정)
+  if (customId.startsWith('confirm_join_')) {
+    const uid = customId.replace('confirm_join_', '');
+
+    // interaction pending 방지
+    await interaction.deferUpdate();
+
+    // 선택 메뉴 값 가져오기
+    const lanes = state.lanes[uid] || { main: null, sub: [] };
+    const tier  = state.tiers[uid];
+
+    // 주/부라인 & 티어 검증
+    if (!lanes.main || !lanes.sub || !tier ||
+        lanes.main === '없음' || lanes.sub.includes('없음') || tier === '없음') {
+      return interaction.followUp({
+        content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌',
         ephemeral: true
       });
     }
 
-    // ✅ 확인 버튼 처리
-    if (customId.startsWith('confirm_join_')) {
-      await interaction.deferUpdate();
+    // state에 값 반영
+    state.lanes[uid] = lanes;
+    state.tiers[uid] = tier;
 
-      const uid = customId.replace('confirm_join_', '');
-      const mainLane = state.lanes[uid]?.main;
-      const subLane  = state.lanes[uid]?.sub;
-      const tier     = state.tiers[uid];
+    // 최종 참여 반영
+    if (!state.members.includes(uid) && !state.wait.has(uid)) {
+      if (state.members.length >= 40) {
+        state.wait.add(uid);
+      } else {
+        state.members.push(uid);
+      }
+    }
 
-      // 주/부라인 & 티어 검증
-      if (!mainLane || !subLane || !tier ||
-          mainLane === '없음' || subLane === '없음' || tier === '없음') {
-        return interaction.followUp({
-          content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌',
-          ephemeral: true
-        });
+    // 참여 시간 기록
+    state.joinedAt[uid] = Date.now();
+
+    // 저장 & 백업
+    saveRooms();
+    backupRooms(state);
+
+    // embed 갱신
+    await updateMessage();
+
+    // ephemeral 안내 메시지
+    return interaction.followUp({
+      content: `✅ ${interaction.user.username} 님 내전에 참여 완료!`,
+      ephemeral: true
+    });
+  }
+
+  // ❎ 내전취소 + 대기자 승급
+  if (customId === 'leave_game') {
+    const wasMember = state.members.includes(user.id);
+    state.members = state.members.filter(m => m !== user.id);
+    state.wait.delete(user.id);
+    state.last.delete(user.id);
+
+    // 빈자리 생겼고 대기자가 있다면 1명 승급
+    if (wasMember && state.wait.size > 0) {
+      const next = state.wait.values().next().value;
+      state.wait.delete(next);
+      state.members.push(next);
+    }
+
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
+  }
+
+  // ⛔ 내전막판
+  if (customId === 'last_call') {
+    const wasMember = state.members.includes(user.id);
+
+    if (wasMember) {
+      // 참여자 → 막판 이동
+      state.last.add(user.id);
+      state.members = state.members.filter(m => m !== user.id);
+
+      // 빈자리만큼 대기자에서 승급
+      if (state.wait.size > 0) {
+        const next = state.wait.values().next().value;
+        state.wait.delete(next);
+        state.members.push(next);
       }
 
-      // 최종 참여 반영
-      if (!state.members.includes(uid) && !state.wait.has(uid)) {
-        if (state.members.length >= 40) {
-          state.wait.add(uid);
-        } else {
-          state.members.push(uid);
-        }
-      }
-
-      state.joinedAt[uid] = Date.now();
       saveRooms();
       backupRooms(state);
+      return updateMessage();
+    }
+  }
+}
 
       // ✅ 로그 찍기
       try {
