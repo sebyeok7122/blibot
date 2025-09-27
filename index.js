@@ -496,9 +496,6 @@ if (customId === 'join_game') {
     console.log(`✅ 내전참여: ${interaction.user.tag} (${interaction.user.id})`);
   }
 
-  // ✅ 개인 설정창 또는 알림 처리 부분은 여기 아래 이어짐
-}
-
   // ✅ 개인 설정창 생성
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId(`lane_${user.id}`)
