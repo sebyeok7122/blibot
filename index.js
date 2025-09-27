@@ -694,7 +694,7 @@ return;  // ⬅️ 여기 넣어주면 됨
 }
 // ✅ 개인 설정창 생성
 const mainLaneSelect = new StringSelectMenuBuilder()
-  .setCustomId(`lane_${user.id}`)
+  .setCustomId(`lane_${interaction.user.id}`)
   .setPlaceholder('주라인 선택')
   .addOptions(
     { label: '탑', value: 'top', default: state.lanes[user.id]?.main === 'top' },
@@ -705,7 +705,7 @@ const mainLaneSelect = new StringSelectMenuBuilder()
   );
 
 const subLaneSelect = new StringSelectMenuBuilder()
-  .setCustomId(`sublane_${user.id}`)
+  .setCustomId(`sublane_${interaction.user.id}`)
   .setPlaceholder('부라인 선택 (여러 개 가능)')
   .setMinValues(1)
   .setMaxValues(5)
@@ -719,7 +719,7 @@ const subLaneSelect = new StringSelectMenuBuilder()
   );
 
 const tierSelect = new StringSelectMenuBuilder()
-  .setCustomId(`tier_${user.id}`)
+  .setCustomId(`tier_${interaction.user.id}`)
   .setPlaceholder('티어 선택')
   .addOptions(
     { label: '아이언', value: 'I', default: state.tiers[user.id] === 'I' },
