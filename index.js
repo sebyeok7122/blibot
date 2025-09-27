@@ -831,8 +831,6 @@ if (commandName === '인증확인') {
       new ActionRowBuilder().addComponents(tierSelect)
     ]
   });
-} // 🔒 여기서 join_game 블록 끝
-
 
    // ❎ 내전취소
     if (customId === 'leave_game') {
