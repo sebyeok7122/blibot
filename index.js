@@ -34,7 +34,6 @@ const client = new Client({
 });
 
 // ✅ 환경 변수 및 기본 경로
-const path = require('path');
 const token = process.env.BLIBOT_TOKEN;
 const clientId = '1392425978265075772';
 const guildIds = ["1309877071308394506", "686518979292037142"];
