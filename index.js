@@ -36,14 +36,6 @@ const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
 const ROOMS_PATH = path.join(__dirname, 'rooms.json');
 
 // ✅ JSON 유틸
-function loadAccounts() {
-  if (fs.existsSync(accountPath)) {
-    return JSON.parse(fs.readFileSync(accountPath, 'utf8'));
-  } else return {};
-}
-function saveAccounts(accounts) {
-  fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2));
-}
 async function readJSONSafe(file, fallback = {}) {
   try {
     const raw = await fsP.readFile(file, 'utf8');
@@ -78,6 +70,10 @@ function loadRooms() {
   if (fs.existsSync(ROOMS_PATH)) {
     try {
       const obj = JSON.parse(fs.readFileSync(ROOMS_PATH, 'utf8'));
+      if (!Object.keys(obj).length) {
+        console.warn("⚠️ rooms.json이 비어있음. 새 상태 초기화.");
+        return;
+      }
       for (const [key, value] of Object.entries(obj)) {
         roomState.set(key, {
           members: value.members || [],
@@ -93,6 +89,30 @@ function loadRooms() {
       console.log("✅ roomState 복원 완료:", roomState.size);
     } catch (e) {
       console.error("❌ rooms.json 파싱 오류:", e.message);
+    }
+  }
+}
+
+// ✅ 새로 추가된 복구 함수
+async function restoreMessages() {
+  for (const [msgId, state] of roomState.entries()) {
+    try {
+      for (const guildId of guildIds) {
+        const guild = await client.guilds.fetch(guildId);
+        const channel = guild.channels.cache.get("1411810152255979570"); // 내전채널 ID
+        if (!channel) continue;
+
+        const msg = await channel.messages.fetch(msgId).catch(() => null);
+        if (msg) {
+          console.log(`✅ 메시지 ${msgId} 복구 완료`);
+          await msg.edit({
+            embeds: [renderEmbed(state, state.startTime, state.isAram)],
+            components: msg.components
+          });
+        }
+      }
+    } catch (e) {
+      console.error("복구 실패:", e);
     }
   }
 }
@@ -188,8 +208,8 @@ function renderEmbed(state, startTime, isAram) {
     const tier     = tiers?.[userId] || '없음';
     const timeText = joinedAt?.[userId] ? formatKST(joinedAt[userId]) : '';
 
-    return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
-  }).join('\n') || "(없음)";
+   return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
+}).join('\n') || "(없음)";
 
   // 대기자 표시 (11~20 등)
   const waitText = (wait && wait.size) ? [...wait].map((id, idx) => `${members.length + idx + 1}. <@${id}>`).join('\n') : '(없음)';
@@ -471,7 +491,13 @@ if (customId === 'join_game') {
     state.joinedAt[user.id] = Date.now();
     saveRooms();
     backupRooms(state);
+
+    // ✅ 로그 추가
+    console.log(`✅ 내전참여: ${interaction.user.tag} (${interaction.user.id})`);
   }
+
+  // ✅ 개인 설정창 또는 알림 처리 부분은 여기 아래 이어짐
+}
 
   // ✅ 개인 설정창 생성
   const mainLaneSelect = new StringSelectMenuBuilder()
