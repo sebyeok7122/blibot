@@ -467,62 +467,74 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // -------------------
-    // /막판자삭제
-    // -------------------
-    if (commandName === '막판자삭제') {
-      const allowedRoles = ['689438958140260361', '1415895023102197830'];
-      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
-      }
+// -------------------
+// /막판자삭제
+// -------------------
+if (commandName === '막판자삭제') {
+  const allowedRoles = ['689438958140260361', '1415895023102197830'];
+  if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+    return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
+  }
 
-      const target = options.getUser('유저');
-      if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
+  const target = options.getUser('유저');
+  if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
 
-      // 현재 채널의 최신 내전 메시지 탐색
-      const messages = await interaction.channel.messages.fetch({ limit: 30 });
-      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
-      if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+  // 현재 채널의 최신 내전 메시지 탐색
+  const messages = await interaction.channel.messages.fetch({ limit: 30 });
+  const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+  if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
 
-      const state = roomState.get(recruitMsg.id);
-      if (state.last.has(target.id)) {
-        state.last.delete(target.id);
-        saveRooms();
-        backupRooms(state);
-        await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
-        return interaction.reply(`✅ <@${target.id}> 님을 막판 명단에서 삭제했습니다.`);
-      } else {
-        return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
-      }
-    } // ← /참여자삭제 블록 닫기
+  const state = roomState.get(recruitMsg.id);
+  if (state.last.has(target.id)) {
+    state.last.delete(target.id);
+    saveRooms();
+    backupRooms(state);
+    await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
+    return interaction.reply(`✅ <@${target.id}> 님을 막판 명단에서 삭제했습니다.`);
+  } else {
+    return interaction.reply({ content: '⚠️ 해당 유저는 막판 명단에 없습니다.', ephemeral: true });
+  }
+} // ← /막판자삭제 블록 닫기 ✅
 
-    // -------------------
-    // /참여자삭제
-    // -------------------
-    if (commandName === '참여자삭제') {
-      const allowedRoles = ['689438958140260361', '1415895023102197830'];
-      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
-      }
 
-      const target = options.getUser('유저');
-      if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
+// -------------------
+// /참여자삭제
+// -------------------
+if (commandName === '참여자삭제') {
+  const allowedRoles = ['689438958140260361', '1415895023102197830'];
+  if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+    return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
+  }
 
-      // 현재 채널의 최신 내전 메시지 탐색
-      const messages = await interaction.channel.messages.fetch({ limit: 30 });
-      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
-      if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+  const target = options.getUser('유저');
+  if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
 
-      const state = roomState.get(recruitMsg.id);
+  // 현재 채널의 최신 내전 메시지 탐색
+  const messages = await interaction.channel.messages.fetch({ limit: 30 });
+  const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+  if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
 
-      let removed = false;
-      if (state.members.includes(target.id)) {
-        state.members = state.members.filter(m => m !== target.id);
-        removed = true;
-      } else if (state.wait.has(target.id)) {
-        state.wait.delete(target.id);
-        removed = true;
-      }
+  const state = roomState.get(recruitMsg.id);
+
+  let removed = false;
+  if (state.members.includes(target.id)) {
+    state.members = state.members.filter(m => m !== target.id);
+    removed = true;
+  } else if (state.wait.has(target.id)) {
+    state.wait.delete(target.id);
+    removed = true;
+  }
+
+  if (removed) {
+    saveRooms();
+    backupRooms(state);
+    await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
+    return interaction.reply(`✅ <@${target.id}> 님을 명단에서 삭제했습니다.`);
+  } else {
+    return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
+  }
+} // ← /참여자삭제 블록 닫기 ✅
+
 // -------------------
 // 2) 버튼 핸들러 (중복 제거·정리본)
 // -------------------
