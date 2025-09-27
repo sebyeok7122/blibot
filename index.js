@@ -491,10 +491,9 @@ client.on('interactionCreate', async (interaction) => {
         await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
         return interaction.reply(`✅ <@${target.id}> 님을 막판 명단에서 삭제했습니다.`);
       } else {
-        return interaction.reply({ content: '⚠️ 해당 유저는 막판 명단에 없습니다.', ephemeral: true });
+        return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
       }
-    }
-  }   // ✅ 이거 추가 → /참여자삭제 블록 닫기
+    } // ← /참여자삭제 블록 닫기
 
     // -------------------
     // /참여자삭제
