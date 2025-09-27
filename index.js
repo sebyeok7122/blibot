@@ -16,6 +16,9 @@ const path = require('path');
 const fsP = require('fs/promises');
 const backupRooms = require('./backupRooms');
 
+// ✅ fetch 추가
+const fetch = require('node-fetch');
+
 // ✅ 태그라인 → 플랫폼 라우팅 매핑 (third-party-code는 플랫폼 도메인 사용)
 const TAGLINE_TO_PLATFORM = {
   KR1: 'kr',     JP1: 'jp1',   NA1: 'na1',  EUW1: 'euw1', EUN1: 'eun1',
@@ -380,7 +383,7 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // ✅ 막판자삭제 & 참여자삭제는 기존 로직 그대로 유지 (생략)
+    // ✅ 막판자삭제 & 참여자삭제
   }
 
   // -------------------
@@ -394,30 +397,73 @@ client.on('interactionCreate', async (interaction) => {
 
     const updateMessage = () => interaction.update({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
 
-    // ✅ 내전참여
-    if (customId === 'join_game') {
-      await interaction.deferReply({ ephemeral: true });
+    // ✅ 내전참여 (UI만 띄움)
+if (customId === 'join_game') {
+  await interaction.deferReply({ ephemeral: true });
 
-      const mainLaneSelect = new StringSelectMenuBuilder().setCustomId(`lane_${user.id}`).setPlaceholder('주 라인 선택').addOptions(
-        { label: '탑', value: 'top' }, { label: '정글', value: 'jungle' }, { label: '미드', value: 'mid' }, { label: '원딜', value: 'adc' }, { label: '서폿', value: 'support' }
-      );
+  // 주 라인(단일)
+  const mainLaneSelect = new StringSelectMenuBuilder()
+    .setCustomId(`lane_${user.id}`)
+    .setPlaceholder('주라인 선택')
+    .addOptions(
+      { label: '탑', value: 'top' },
+      { label: '정글', value: 'jungle' },
+      { label: '미드', value: 'mid' },
+      { label: '원딜', value: 'adc' },
+      { label: '서폿', value: 'support' },
+    );
 
-      const subLaneSelect = new StringSelectMenuBuilder().setCustomId(`sublane_${user.id}`).setPlaceholder('부라인 선택').setMinValues(1).setMaxValues(5).addOptions(
-        { label: '없음', value: 'none' }, { label: '탑', value: 'top' }, { label: '정글', value: 'jungle' }, { label: '미드', value: 'mid' }, { label: '원딜', value: 'adc' }, { label: '서폿', value: 'support' }
-      );
+  // 부 라인(멀티)
+  const subLaneSelect = new StringSelectMenuBuilder()
+    .setCustomId(`sublane_${user.id}`)
+    .setPlaceholder('부라인 선택 (여러 개 가능)')
+    .setMinValues(1)
+    .setMaxValues(5)
+    .addOptions(
+      { label: '없음', value: 'none' },
+      { label: '탑', value: 'top' },
+      { label: '정글', value: 'jungle' },
+      { label: '미드', value: 'mid' },
+      { label: '원딜', value: 'adc' },
+      { label: '서폿', value: 'support' },
+    );
 
-      const tierSelect = new StringSelectMenuBuilder().setCustomId(`tier_${user.id}`).setPlaceholder('티어 선택').addOptions(
-        { label: '아이언', value: 'I' }, { label: '브론즈', value: 'B' }, { label: '실버', value: 'S' }, { label: '골드', value: 'G' },
-        { label: '플래티넘', value: 'P' }, { label: '에메랄드', value: 'E' }, { label: '다이아', value: 'D' }, { label: '마스터', value: 'M' },
-        { label: '그마', value: 'GM' }, { label: '챌린저', value: 'C' }, { label: '14~15최고티어', value: 'T1415' }
-      );
+  // 티어 (플레이스홀더: 14~15최고티어)
+  const tierSelect = new StringSelectMenuBuilder()
+    .setCustomId(`tier_${user.id}`)
+    .setPlaceholder('14~15최고티어')
+    .addOptions(
+      { label: '아이언', value: 'I' },
+      { label: '브론즈', value: 'B' },
+      { label: '실버', value: 'S' },
+      { label: '골드', value: 'G' },
+      { label: '플래티넘', value: 'P' },
+      { label: '에메랄드', value: 'E' },
+      { label: '다이아', value: 'D' },
+      { label: '마스터', value: 'M' },
+      { label: '그마', value: 'GM' },
+      { label: '챌린저', value: 'C' },
+      { label: '14~15최고티어', value: 'T1415' },
+    );
 
-      return interaction.editReply({
-        content: '🎮 내전에 참여하려면 **주/부 라인 + 티어**를 선택해주세요!',
-        components: [new ActionRowBuilder().addComponents(mainLaneSelect), new ActionRowBuilder().addComponents(subLaneSelect), new ActionRowBuilder().addComponents(tierSelect)],
-        ephemeral: true
-      });
-    }
+  // 확인 버튼
+  const confirmButton = new ButtonBuilder()
+    .setCustomId(`confirm_join_${user.id}`)
+    .setLabel('✅ 확인')
+    .setStyle(ButtonStyle.Success);
+
+  await interaction.editReply({
+    content: '🌸 내전에 참여하시려면 **주 라인 · 부 라인 · 티어**를 꼭 선택해 주세요!',
+    components: [
+      new ActionRowBuilder().addComponents(mainLaneSelect),
+      new ActionRowBuilder().addComponents(subLaneSelect),
+      new ActionRowBuilder().addComponents(tierSelect),
+      new ActionRowBuilder().addComponents(confirmButton),
+    ],
+    ephemeral: true,
+  });
+  return;
+}
 
     // ❎ 내전취소
     if (customId === 'leave_game') {
