@@ -720,7 +720,6 @@ if (interaction.isChatInputCommand()) {
       return updateMessage();
     }
 
-}
   // ✅ 개인 설정창 생성
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId(`lane_${user.id}`)
