@@ -26,14 +26,6 @@ const TAGLINE_TO_PLATFORM = {
   PBE1: 'pbe1'
 };
 
-// ✅ 인증 코드 생성기
-function genVerifyCode() {
-  // 예: BLIBOT-8X2F7Q
-  const s = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'');
-  return `BLIBOT-${s.slice(2,8)}`;
-}
-
-
 // ✅ 클라이언트 생성
 const client = new Client({
   intents: [
@@ -49,7 +41,7 @@ const clientId = '1392425978265075772';
 const guildIds = ["1309877071308394506", "686518979292037142"];
 
 // 🔑 Riot API Key 불러오기
-const riotKey = RGAPI-ad0d3abe-bb4c-4e66-9f05-f8924e53c282
+const riotKey = process.env.RIOT_API_KEY;
 
 const accountPath = path.join(__dirname, 'accounts.json');
 const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
@@ -155,11 +147,6 @@ const commands = [
     .setName('내전')
     .setDescription('내전을 모집합니다.')
     .addStringOption(o => o.setName('시간').setDescription('내전 시작 시간').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('인증확인')
-    .setDescription('프로필에 넣은 인증 코드를 확인하여 계정 소유권을 인증합니다.'),
-
 
   new SlashCommandBuilder()
     .setName('칼바람내전')
@@ -435,7 +422,7 @@ if (commandName === '인증확인') {
       saveAccounts(accounts);
       return interaction.reply(`✅ <@${userId}> 님, 본인 인증이 완료되었습니다!`);
     } else {
-      return interaction.reply(`❌ 인증 실패! LoL 클라 프로필에 올바른 코드를 넣었는지 확인해주세요.`);
+      return interaction.reply(`❌본인인증 실패❌ 프로필에 올바른 코드를 넣었는지 확인해주세요.`);
     }
   } catch (err) {
     console.error("인증확인 오류:", err);
