@@ -336,9 +336,15 @@ client.on('interactionCreate', async (interaction) => {
         fetchReply: true
       });
 
-      roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
-      saveRooms();
-    }
+roomState.set(replyMsg.id, { 
+  members: [], lanes: {}, tiers: {}, 
+  last: new Set(), wait: new Set(), 
+  startTime, isAram, joinedAt: {} 
+});
+saveRooms();
+
+return;  // ⬅️ 여기 넣어주면 됨
+}        // ⬅️ 그리고 이건 블록 닫기 괄호 (그대로 유지)
 
     // ✅ 딥롤방연결
     if (commandName === '딥롤방연결') {
