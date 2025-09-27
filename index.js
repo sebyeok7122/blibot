@@ -531,7 +531,8 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
       }
     }
-  }
+
+  } // ✅ 여기서 ChatInputCommand 블록 닫힘
 
 // -------------------
 // 2) 버튼 핸들러 (중복 제거·정리본)
