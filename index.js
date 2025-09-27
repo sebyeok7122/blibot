@@ -707,8 +707,7 @@ if (interaction.isButton()) {
     saveRooms();
     backupRooms(state);
     return updateMessage();
-  }
-}
+   }
 
       // ✅ 로그 찍기
       try {
