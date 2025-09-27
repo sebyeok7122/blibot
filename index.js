@@ -770,7 +770,6 @@ if (customId === 'last_call') {
         console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
       }
     }
-
     // ✅ 막판 로그
     try {
       const member = await interaction.guild.members.fetch(user.id);
@@ -778,13 +777,12 @@ if (customId === 'last_call') {
     } catch (err) {
       console.log(`⛔ 내전막판: <@${user.id}> (닉네임 불러오기 실패)`);
     }
-  }
 
-     saveRooms();
-     backupRooms(state);
-     return updateMessage();
-   }
-}
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
+  } // ⛔ last_call 끝
+}   // 버튼 핸들러 끝
 
   // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
