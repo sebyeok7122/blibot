@@ -155,17 +155,18 @@ const commands = [
     .addStringOption(o => o.setName('matchid').setDescription('내전 matchId').setRequired(true))
     .addStringOption(o => o.setName('roomcode').setDescription('딥롤 방 코드').setRequired(true)),
 
+  // ✅ 추가
   new SlashCommandBuilder()
     .setName('막판자삭제')
     .setDescription('막판 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
     .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
 
+  // ✅ 추가
   new SlashCommandBuilder()
     .setName('참여자삭제')
     .setDescription('참여자/대기자 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
     .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
 ];
-
 // ✅ 슬래시 명령어 등록
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -239,251 +240,167 @@ function renderEmbed(state, startTime, isAram) {
     timestamp: new Date()
   };
 }
+
 client.on('interactionCreate', async (interaction) => {
-  // -------------------
-  // 1) 슬래시 명령어
-  // -------------------
   if (interaction.isChatInputCommand()) {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-// ✅ 계정등록
-if (commandName === '계정등록') {
-  const riotNick = options.getString('라이엇닉네임');
-  const [gameName, tagLine] = riotNick.split('#');
-  if (!gameName || !tagLine) {
-    return interaction.reply(`❌ 닉네임 형식이 올바르지 않습니다. (예: 새 벽 #반딧불이)`);
-  }
-
-  try {
-    const response = await fetch(
-      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
-      { headers: { "X-Riot-Token": riotKey } }
-    );
-
-    if (response.status === 404) {
-      return interaction.reply(`❌ 없는 계정입니다. 정확한 계정을 등록해주시길 바랍니다.`);
-    }
-    if (!response.ok) {
-      return interaction.reply(`❌ Riot API 오류: 코드 ${response.status}`);
-    }
-
-    const data = await response.json();
-    const officialName = `${data.gameName}#${data.tagLine}`;
-
-    let accounts = await loadAccounts(); // ✅ await 추가
-    if (!accounts[userId]) {
-      accounts[userId] = {
-        riotName: officialName,
-        puuid: data.puuid,
-        mmr: 1000,
-        wins: 0,
-        losses: 0,
-        streak: 0,
-        gamesPlayed: 0,
-        userTag: interaction.user.tag,
-        type: "main"
-      };
-      await saveAccounts(accounts); // ✅ await 추가
-      return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 등록되었습니다!`);
-    } else {
-      return interaction.reply(`⚠️ 이미 등록된 계정이 있습니다: **${accounts[userId].riotName}**`);
-    }
-  } catch (err) {
-    console.error("❌ 계정등록 오류:", err);
-    return interaction.reply(`❌ 계정 등록 중 오류가 발생했습니다.`);
-  }
-}
-
-// ✅ 계정삭제
-if (commandName === '계정삭제') {
-  try {
-    let accounts = await loadAccounts(); // ✅ await 추가
-    if (accounts[userId]) {
-      delete accounts[userId];
-      await saveAccounts(accounts); // ✅ await 추가
-      return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
-    } else {
-      return interaction.reply(`❌ 등록된 계정이 없습니다.`);
-    }
-  } catch (err) {
-    console.error("❌ 계정삭제 오류:", err);
-    return interaction.reply(`⚠️ 계정 삭제 중 오류가 발생했습니다.`);
-  }
-}
-    // ✅ 부캐등록
-    if (commandName === '부캐등록') {
-      const subNick = options.getString('부캐닉네임');
-      const mainNick = options.getString('메인닉네임');
-      let accounts = loadAccounts();
-
-      if (!accounts[userId]) {
-        return interaction.reply(`❌ 먼저 /계정등록 하세요.`);
-      }
-      if (accounts[userId].riotName !== mainNick) {
-        return interaction.reply(`⚠️ 메인 닉네임이 다릅니다. 현재 등록된 메인: **${accounts[userId].riotName}**`);
-      }
-
-      if (!accounts[userId].alts) accounts[userId].alts = [];
-      if (!accounts[userId].alts.includes(subNick)) {
-        accounts[userId].alts.push(subNick);
-        saveAccounts(accounts);
-        return interaction.reply(`✅ 부캐 **${subNick}** 연결 완료!`);
-      } else {
-        return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
-      }
-    }
-
-    // ✅ 내전 모집 (/내전, /칼바람내전)
-    if (commandName === '내전' || commandName === '칼바람내전') {
-      const allowedRoles = ['689438958140260361', '1415895023102197830']; // 관리자/도우미
+    // ✅ 막판자삭제
+    if (commandName === '막판자삭제') {
+      const allowedRoles = ['689438958140260361', '1415895023102197830'];
       if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '🤍 내전 모집은 관리자 혹은 도우미에게 문의주세요 🤍', ephemeral: true });
+        return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
       }
 
-      const startTime = options.getString('시간');
-      const isAram = commandName === '칼바람내전';
+      const target = options.getUser('유저');
+      if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
 
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
-      const lastBtn = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
-
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
-
-      const replyMsg = await interaction.reply({
-        embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
-        components: [row],
-        fetchReply: true
-      });
-
-      roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
-      saveRooms();
-    }
-
-    // ✅ 내전시간변경
-    if (commandName === '내전시간변경') {
-      const allowedRoles = ['1411424227457892412', '689438958140260361', '1415895023102197830'];
-      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '내전 시간은 운영진 또는 도우미에게 부탁해주세요 🛎', ephemeral: true });
-      }
-
-      const newTime = options.getString('시간');
-      const channel = interaction.channel;
-      const messages = await channel.messages.fetch({ limit: 20 });
-      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && (m.embeds?.[0]?.title || '').includes('내전이 시작되었어요'));
-      if (!recruitMsg) return interaction.reply({ content: '⚠️ 수정할 내전 메시지를 찾을 수 없어요.', ephemeral: true });
+      const messages = await interaction.channel.messages.fetch({ limit: 30 });
+      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+      if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
 
       const state = roomState.get(recruitMsg.id);
-      state.startTime = newTime;
-      saveRooms();
-      await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
-      await interaction.reply(`✅ 내전 시작 시간이 **${newTime}**(으)로 수정되었습니다!`);
-    }
+      if (state.last.has(target.id)) {
+        state.last.delete(target.id);
+        saveRooms();
+        backupRooms(state);
+        await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
 
-    // ✅ 딥롤방연결
-    if (commandName === '딥롤방연결') {
-      const matchId = options.getString('matchid', true);
-      const roomCode = options.getString('roomcode', true);
-      try {
-        const map = await readJSONSafe(LINKS_PATH, {});
-        map[matchId] = { roomCode, updatedAt: Date.now() };
-        await writeJSONSafe(LINKS_PATH, map);
-        return interaction.reply({ content: `🔗 matchId **${matchId}** ↔ roomCode **${roomCode}** 연결 완료!`, ephemeral: true });
-      } catch (e) {
-        console.error('딥롤방연결 오류:', e);
-        return interaction.reply({ content: '❌ 연결 중 오류 발생.', ephemeral: true });
+        console.log(`🗑️ 막판자삭제: ${target.tag} (${target.id})`); // ✅ 로그 추가
+        return interaction.reply(`✅ <@${target.id}> 님을 막판 명단에서 삭제했습니다.`);
+      } else {
+        return interaction.reply({ content: '⚠️ 해당 유저는 막판 명단에 없습니다.', ephemeral: true });
       }
     }
 
-    // ✅ 막판자삭제 & 참여자삭제
-  }
+    // ✅ 참여자삭제
+    if (commandName === '참여자삭제') {
+      const allowedRoles = ['689438958140260361', '1415895023102197830'];
+      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+        return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
+      }
 
+      const target = options.getUser('유저');
+      if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
+
+      const messages = await interaction.channel.messages.fetch({ limit: 30 });
+      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+      if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+
+      const state = roomState.get(recruitMsg.id);
+
+      let removed = false;
+      if (state.members.includes(target.id)) {
+        state.members = state.members.filter(m => m !== target.id);
+        removed = true;
+      } else if (state.wait.has(target.id)) {
+        state.wait.delete(target.id);
+        removed = true;
+      }
+
+      if (removed) {
+        saveRooms();
+        backupRooms(state);
+        await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
+
+        console.log(`🗑️ 참여자삭제: ${target.tag} (${target.id})`); // ✅ 로그 추가
+        return interaction.reply(`✅ <@${target.id}> 님을 참여자/대기자 명단에서 삭제했습니다.`);
+      } else {
+        return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
+      }
+    }
+  }
   // -------------------
   // 2) 버튼 핸들러
   // -------------------
   if (interaction.isButton()) {
     const { customId, user, message } = interaction;
     const key = message.id;
-    if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} });
+    if (!roomState.has(key)) {
+      roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} });
+    }
     const state = roomState.get(key);
 
-    const updateMessage = () => interaction.update({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
+    const updateMessage = () =>
+      interaction.update({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
 
-    // ✅ 내전참여 (UI만 띄움)
-if (customId === 'join_game') {
-  await interaction.deferReply({ ephemeral: true });
+    // ✅ 내전참여
+    if (customId === 'join_game') {
+      await interaction.deferReply({ ephemeral: true });
 
-  // 주 라인(단일)
-  const mainLaneSelect = new StringSelectMenuBuilder()
-    .setCustomId(`lane_${user.id}`)
-    .setPlaceholder('주라인 선택')
-    .addOptions(
-      { label: '탑', value: 'top' },
-      { label: '정글', value: 'jungle' },
-      { label: '미드', value: 'mid' },
-      { label: '원딜', value: 'adc' },
-      { label: '서폿', value: 'support' },
-    );
+      const mainLaneSelect = new StringSelectMenuBuilder()
+        .setCustomId(`lane_${user.id}`)
+        .setPlaceholder('주라인 선택')
+        .addOptions(
+          { label: '탑', value: 'top' },
+          { label: '정글', value: 'jungle' },
+          { label: '미드', value: 'mid' },
+          { label: '원딜', value: 'adc' },
+          { label: '서폿', value: 'support' },
+        );
 
-  // 부 라인(멀티)
-  const subLaneSelect = new StringSelectMenuBuilder()
-    .setCustomId(`sublane_${user.id}`)
-    .setPlaceholder('부라인 선택 (여러 개 가능)')
-    .setMinValues(1)
-    .setMaxValues(5)
-    .addOptions(
-      { label: '없음', value: 'none' },
-      { label: '탑', value: 'top' },
-      { label: '정글', value: 'jungle' },
-      { label: '미드', value: 'mid' },
-      { label: '원딜', value: 'adc' },
-      { label: '서폿', value: 'support' },
-    );
+      const subLaneSelect = new StringSelectMenuBuilder()
+        .setCustomId(`sublane_${user.id}`)
+        .setPlaceholder('부라인 선택 (여러 개 가능)')
+        .setMinValues(1)
+        .setMaxValues(5)
+        .addOptions(
+          { label: '없음', value: 'none' },
+          { label: '탑', value: 'top' },
+          { label: '정글', value: 'jungle' },
+          { label: '미드', value: 'mid' },
+          { label: '원딜', value: 'adc' },
+          { label: '서폿', value: 'support' },
+        );
 
-  // 티어 (플레이스홀더: 14~15최고티어)
-  const tierSelect = new StringSelectMenuBuilder()
-    .setCustomId(`tier_${user.id}`)
-    .setPlaceholder('14~15최고티어')
-    .addOptions(
-      { label: '아이언', value: 'I' },
-      { label: '브론즈', value: 'B' },
-      { label: '실버', value: 'S' },
-      { label: '골드', value: 'G' },
-      { label: '플래티넘', value: 'P' },
-      { label: '에메랄드', value: 'E' },
-      { label: '다이아', value: 'D' },
-      { label: '마스터', value: 'M' },
-      { label: '그마', value: 'GM' },
-      { label: '챌린저', value: 'C' },
-      { label: '14~15최고티어', value: 'T1415' },
-    );
+      const tierSelect = new StringSelectMenuBuilder()
+        .setCustomId(`tier_${user.id}`)
+        .setPlaceholder('14~15최고티어')
+        .addOptions(
+          { label: '아이언', value: 'I' },
+          { label: '브론즈', value: 'B' },
+          { label: '실버', value: 'S' },
+          { label: '골드', value: 'G' },
+          { label: '플래티넘', value: 'P' },
+          { label: '에메랄드', value: 'E' },
+          { label: '다이아', value: 'D' },
+          { label: '마스터', value: 'M' },
+          { label: '그마', value: 'GM' },
+          { label: '챌린저', value: 'C' },
+          { label: '14~15최고티어', value: 'T1415' },
+        );
 
-  // 확인 버튼
-  const confirmButton = new ButtonBuilder()
-    .setCustomId(`confirm_join_${user.id}`)
-    .setLabel('✅ 확인')
-    .setStyle(ButtonStyle.Success);
+      const confirmButton = new ButtonBuilder()
+        .setCustomId(`confirm_join_${user.id}`)
+        .setLabel('✅ 확인')
+        .setStyle(ButtonStyle.Success);
 
-  await interaction.editReply({
-    content: '🌸 내전에 참여하시려면 **주 라인 · 부 라인 · 티어**를 꼭 선택해 주세요!',
-    components: [
-      new ActionRowBuilder().addComponents(mainLaneSelect),
-      new ActionRowBuilder().addComponents(subLaneSelect),
-      new ActionRowBuilder().addComponents(tierSelect),
-      new ActionRowBuilder().addComponents(confirmButton),
-    ],
-    ephemeral: true,
-  });
-  return;
-}
+      await interaction.editReply({
+        content: '🌸 내전에 참여하시려면 **주 라인 · 부 라인 · 티어**를 꼭 선택해 주세요!',
+        components: [
+          new ActionRowBuilder().addComponents(mainLaneSelect),
+          new ActionRowBuilder().addComponents(subLaneSelect),
+          new ActionRowBuilder().addComponents(tierSelect),
+          new ActionRowBuilder().addComponents(confirmButton),
+        ],
+        ephemeral: true,
+      });
+
+      console.log(`✅ join_game 버튼 클릭: ${user.tag} (${user.id})`); // ✅ 로그
+      return;
+    }
 
     // ❎ 내전취소
     if (customId === 'leave_game') {
       state.members = state.members.filter(m => m !== user.id);
       state.wait.delete(user.id);
       state.last.delete(user.id);
+
       saveRooms();
       backupRooms(state);
+
+      console.log(`❎ leave_game 버튼 클릭: ${user.tag} (${user.id})`); // ✅ 로그
       return updateMessage();
     }
 
@@ -495,6 +412,8 @@ if (customId === 'join_game') {
       }
       saveRooms();
       backupRooms(state);
+
+      console.log(`⛔ last_call 버튼 클릭: ${user.tag} (${user.id})`); // ✅ 로그
       return updateMessage();
     }
   }
@@ -511,7 +430,9 @@ if (customId === 'join_game') {
 
     const messages = await interaction.channel.messages.fetch({ limit: 30 });
     const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
-    if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+    if (!recruitMsg) {
+      return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+    }
 
     const state = roomState.get(recruitMsg.id);
     state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
@@ -522,6 +443,8 @@ if (customId === 'join_game') {
 
     saveRooms();
     backupRooms(state);
+
+    console.log(`🎛️ 선택메뉴 갱신: ${user.tag} (${user.id}) → ${type}: ${values}`); // ✅ 로그
     await interaction.deferUpdate();
   }
 });
