@@ -16,6 +16,33 @@ const path = require('path');
 const fsP = require('fs/promises');
 const backupRooms = require('./backupRooms');
 
+// ✅ 라인 옵션
+const laneOptions = [
+  { label: '탑', value: 'top' },
+  { label: '정글', value: 'jungle' },
+  { label: '미드', value: 'mid' },
+  { label: '원딜', value: 'adc' },
+  { label: '서폿', value: 'support' },
+  { label: '없음', value: '없음' },
+];
+
+// ✅ 티어 옵션
+const tierOptions = [
+  { label: '아이언', value: 'I' },
+  { label: '브론즈', value: 'B' },
+  { label: '실버', value: 'S' },
+  { label: '골드', value: 'G' },
+  { label: '플래티넘', value: 'P' },
+  { label: '에메랄드', value: 'E' },
+  { label: '다이아', value: 'D' },
+  { label: '마스터', value: 'M' },
+  { label: '그마', value: 'GM' },
+  { label: '챌린저', value: 'C' },
+  { label: '14~15최고티어', value: 'T1415' },
+  { label: '없음', value: '없음' },
+];
+
+
 // ✅ fetch 추가
 const fetch = require('node-fetch');
 
@@ -781,8 +808,8 @@ if (customId === 'last_call') {
     saveRooms();
     backupRooms(state);
     return updateMessage();
-  } // ⛔ last_call 끝
-}   // 버튼 핸들러 끝
+  } 
+}  
 
   // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
