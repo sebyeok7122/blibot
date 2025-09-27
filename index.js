@@ -16,6 +16,24 @@ const path = require('path');
 const fsP = require('fs/promises');
 const backupRooms = require('./backupRooms');
 
+// ✅ 환경 변수 및 기본 경로 (기존 블럭 바로 아래에 추가)
+const riotKey = process.env.RIOT_API_KEY;
+
+// ✅ 태그라인 → 플랫폼 라우팅 매핑 (third-party-code는 플랫폼 도메인 사용)
+const TAGLINE_TO_PLATFORM = {
+  KR1: 'kr',     JP1: 'jp1',   NA1: 'na1',  EUW1: 'euw1', EUN1: 'eun1',
+  TR1: 'tr1',    RU: 'ru',     OC1: 'oc1',  BR1: 'br1',   LA1: 'la1', LA2: 'la2',
+  PBE1: 'pbe1'
+};
+
+// ✅ 인증 코드 생성기
+function genVerifyCode() {
+  // 예: BLIBOT-8X2F7Q
+  const s = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return `BLIBOT-${s.slice(2,8)}`;
+}
+
+
 // ✅ 클라이언트 생성
 const client = new Client({
   intents: [
@@ -25,11 +43,13 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ],
 });
-
 // ✅ 환경 변수 및 기본 경로
 const token = process.env.BLIBOT_TOKEN;
 const clientId = '1392425978265075772';
 const guildIds = ["1309877071308394506", "686518979292037142"];
+
+// 🔑 Riot API Key 불러오기
+const riotKey = RGAPI-ad0d3abe-bb4c-4e66-9f05-f8924e53c282
 
 const accountPath = path.join(__dirname, 'accounts.json');
 const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
@@ -137,6 +157,11 @@ const commands = [
     .addStringOption(o => o.setName('시간').setDescription('내전 시작 시간').setRequired(true)),
 
   new SlashCommandBuilder()
+    .setName('인증확인')
+    .setDescription('프로필에 넣은 인증 코드를 확인하여 계정 소유권을 인증합니다.'),
+
+
+  new SlashCommandBuilder()
     .setName('칼바람내전')
     .setDescription('칼바람 내전을 모집합니다.')
     .addStringOption(o => o.setName('시간').setDescription('내전 시작 시간').setRequired(true)),
@@ -160,11 +185,17 @@ const commands = [
         .setRequired(true)
     ),
 
-  // 추가: /막판자삭제
-  new SlashCommandBuilder()
-    .setName('막판자삭제')
-    .setDescription('막판 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
-    .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
+// 추가: /막판자삭제
+new SlashCommandBuilder()
+  .setName('막판자삭제')
+  .setDescription('막판 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
+  .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
+
+// 추가: /참여자삭제
+new SlashCommandBuilder()
+  .setName('참여자삭제')
+  .setDescription('참여자/대기자 명단에서 특정 유저를 삭제합니다 (운영진/도우미만 가능)')
+  .addUserOption(o => o.setName('유저').setDescription('삭제할 유저').setRequired(true)),
 ];
 
 // ✅ 슬래시 명령어 등록
@@ -198,27 +229,56 @@ function formatKST(date) {
 
 function renderEmbed(state, startTime, isAram) {
   const { members, lanes, tiers, last, joinedAt, wait } = state;
-  const laneMap = { top: '탑', jungle: '정글', mid: '미드', adc: '원딜', support: '서폿' };
 
+  // 라인 매핑
+  const laneMap = { 
+    top: '탑', 
+    jungle: '정글', 
+    mid: '미드', 
+    adc: '원딜', 
+    support: '서폿' 
+  };
+
+  // 티어 매핑 (T1415 → 14~15최고티어 추가)
+  const tierMap = { 
+    I: '아이언', 
+    B: '브론즈', 
+    S: '실버', 
+    G: '골드',
+    P: '플래티넘', 
+    E: '에메랄드', 
+    D: '다이아', 
+    M: '마스터',
+    GM: '그마', 
+    C: '챌린저', 
+    T1415: '14~15최고티어'
+  };
+
+  // 참여자 출력
   let membersText = (members || []).slice(0, 40).map((m, i) => {
     const userId = typeof m === "string" ? m : m.id;
     const laneInfo = lanes?.[userId] || { main: null, sub: [] };
     const mainLane = laneInfo.main ? laneMap[laneInfo.main] : '없음';
     const subLane  = laneInfo.sub?.length ? laneInfo.sub.map(v => laneMap[v]).join(', ') : '없음';
-    const tier     = tiers?.[userId] || '없음';
+    const tier     = tierMap[tiers?.[userId]] || '없음'; // ✅ 매핑 적용
     const timeText = joinedAt?.[userId] ? formatKST(joinedAt[userId]) : '';
 
-   return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
-}).join('\n') || "(없음)";
+    return `${i + 1}. <@${userId}> (주: ${mainLane} / 부: ${subLane} / 티어: ${tier}) ${timeText}`;
+  }).join('\n') || "(없음)";
 
-  // 대기자 표시 (11~20 등)
-  const waitText = (wait && wait.size) ? [...wait].map((id, idx) => `${members.length + idx + 1}. <@${id}>`).join('\n') : '(없음)';
+  // 대기자 표시
+  const waitText = (wait && wait.size) 
+    ? [...wait].map((id, idx) => `${members.length + idx + 1}. <@${id}>`).join('\n') 
+    : '(없음)';
 
   if ((members || []).length > 40) {
     membersText += `\n\n⚠️ 참여자 수가 40명을 초과하여 **더이상 참여하실 수 없습니다.**\n새 시트를 이용해 주세요.`;
   }
 
-  const lastText = last?.size ? [...last].map(id => `<@${id}>`).join(', ') : '(없음)';
+  // 막판 표시 (번호 붙여 출력)
+  const lastText = last?.size
+    ? [...last].map((id, idx) => `${idx + 1}. <@${id}>`).join('\n')
+    : '(없음)';
 
   const fields = [{ name: "❌ 막판", value: lastText, inline: false }];
   if (wait && wait.size) fields.push({ name: "⏳ 대기자", value: waitText, inline: false });
@@ -242,39 +302,146 @@ client.on('interactionCreate', async (interaction) => {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-    // 계정등록
-    if (commandName === '계정등록') {
-      const riotNick = options.getString('라이엇닉네임');
-      let accounts = loadAccounts();
-      if (!accounts[userId]) {
-        accounts[userId] = { main: riotNick, alts: [], wins: 0, losses: 0, mmr: 1000, streak: 0, gamesPlayed: 0 };
-        saveAccounts(accounts);
-        return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${riotNick}** 으로 등록되었습니다!`);
-      } else return interaction.reply(`⚠️ 이미 등록됨! 현재: **${accounts[userId].main}**`);
+// 계정등록 (Riot API 검증 + 없는 계정 필터링 + 정식 표기 저장 + 인증코드 발급)
+if (commandName === '계정등록') {
+  const riotNick = options.getString('라이엇닉네임');
+  const [gameName, tagLine] = riotNick.split('#');
+  if (!gameName || !tagLine) {
+    return interaction.reply(`❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#KR1)`);
+  }
+
+  try {
+    // 🔑 Riot API 호출 (존재하는 계정인지 확인)
+    const response = await fetch(
+      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+      { headers: { "X-Riot-Token": riotKey } }
+    );
+
+    if (response.status === 404) {
+      return interaction.reply(`❌ 없는 계정입니다. 정확한 계정을 등록해주시길 바랍니다.`);
     }
 
-    // 계정삭제
-    if (commandName === '계정삭제') {
-      let accounts = loadAccounts();
-      if (accounts[userId]) {
-        delete accounts[userId];
-        saveAccounts(accounts);
-        return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
-      } else return interaction.reply(`❌ 등록된 계정이 없습니다.`);
+    if (!response.ok) {
+      return interaction.reply(`❌ Riot API 오류: 코드 ${response.status} (잠시 후 다시 시도해주세요)`);
     }
 
-    // 부캐등록
-    if (commandName === '부캐등록') {
-      const subNick = options.getString('부캐닉네임');
-      const mainNick = options.getString('메인닉네임');
-      let accounts = loadAccounts();
-      if (!accounts[userId]) return interaction.reply(`❌ 먼저 /계정등록 하세요.`);
-      if (accounts[userId].main !== mainNick) return interaction.reply(`⚠️ 메인 닉네임 다름. 현재: **${accounts[userId].main}**`);
-      if (!accounts[userId].alts.includes(subNick)) {
-        accounts[userId].alts.push(subNick); saveAccounts(accounts);
-        return interaction.reply(`✅ 부캐 **${subNick}** 연결 완료!`);
-      } else return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
+    const data = await response.json();
+    const officialName = `${data.gameName}#${data.tagLine}`;
+    const verifyCode = genVerifyCode();
+
+    let accounts = loadAccounts();
+    if (!accounts[userId]) {
+      accounts[userId] = {
+        riotName: officialName,
+        puuid: data.puuid,
+        mmr: 1000,
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        gamesPlayed: 0,
+        userTag: interaction.user.tag,
+        type: "main",
+        verified: false,
+        verifyCode
+      };
+      saveAccounts(accounts);
+
+      // DM으로 인증 코드 전송
+      try {
+        await interaction.user.send(
+          `🔑 본인 인증을 위해 LoL 클라이언트 프로필 소개글에 아래 코드를 입력해주세요:\n\n` +
+          `\`\`\`${verifyCode}\`\`\`\n` +
+          `완료 후 /인증확인 명령어를 입력하면 인증이 끝납니다.`
+        );
+      } catch (dmErr) {
+        console.warn("DM 전송 실패:", dmErr);
+      }
+
+      return interaction.reply(`✅ <@${userId}> 님의 계정이 **${officialName}** 으로 등록되었습니다!\nDM으로 전송된 인증 코드를 클라 프로필에 넣고 /인증확인을 진행해주세요.`);
+    } else {
+      return interaction.reply(`⚠️ 이미 등록된 계정이 있습니다: **${accounts[userId].riotName}**`);
     }
+  } catch (err) {
+    console.error("계정등록 오류:", err);
+    return interaction.reply(`❌ 계정 등록 중 오류가 발생했습니다.`);
+  }
+}
+
+// 계정삭제
+if (commandName === '계정삭제') {
+  let accounts = loadAccounts();
+  if (accounts[userId]) {
+    delete accounts[userId];
+    saveAccounts(accounts);
+    return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
+  } else {
+    return interaction.reply(`❌ 등록된 계정이 없습니다.`);
+  }
+}
+
+// 부캐등록 (정식 표기 반영)
+if (commandName === '부캐등록') {
+  const subNick = options.getString('부캐닉네임');
+  const mainNick = options.getString('메인닉네임');
+  let accounts = loadAccounts();
+
+  if (!accounts[userId]) {
+    return interaction.reply(`❌ 먼저 /계정등록 하세요.`);
+  }
+
+  if (accounts[userId].riotName !== mainNick) {
+    return interaction.reply(`⚠️ 메인 닉네임이 다릅니다. 현재 등록된 메인: **${accounts[userId].riotName}**`);
+  }
+
+  if (!accounts[userId].alts) accounts[userId].alts = [];
+
+  if (!accounts[userId].alts.includes(subNick)) {
+    accounts[userId].alts.push(subNick);
+    saveAccounts(accounts);
+    return interaction.reply(`✅ 부캐 **${subNick}** 연결 완료!`);
+  } else {
+    return interaction.reply(`⚠️ 이미 등록된 부캐: **${subNick}**`);
+  }
+}
+
+// 인증확인 (third-party-code 검증)
+if (commandName === '인증확인') {
+  const accounts = loadAccounts();
+  if (!accounts[userId]) {
+    return interaction.reply(`❌ 먼저 /계정등록을 해주세요.`);
+  }
+
+  const riotName = accounts[userId].riotName;
+  const [gameName, tagLine] = riotName.split('#');
+  const platform = TAGLINE_TO_PLATFORM[tagLine];
+  if (!platform) {
+    return interaction.reply(`⚠️ 알 수 없는 태그라인: ${tagLine}`);
+  }
+
+  try {
+    const res = await fetch(
+      `https://${platform}.api.riotgames.com/lol/platform/v4/third-party-code/by-summoner/${accounts[userId].puuid}`,
+      { headers: { "X-Riot-Token": riotKey } }
+    );
+
+    if (!res.ok) {
+      return interaction.reply(`❌ Riot API 오류: 코드 ${res.status}`);
+    }
+
+    const code = await res.text();
+    if (code.trim() === accounts[userId].verifyCode) {
+      accounts[userId].verified = true;
+      delete accounts[userId].verifyCode;
+      saveAccounts(accounts);
+      return interaction.reply(`✅ <@${userId}> 님, 본인 인증이 완료되었습니다!`);
+    } else {
+      return interaction.reply(`❌ 인증 실패! LoL 클라 프로필에 올바른 코드를 넣었는지 확인해주세요.`);
+    }
+  } catch (err) {
+    console.error("인증확인 오류:", err);
+    return interaction.reply(`❌ 인증 처리 중 오류가 발생했습니다.`);
+  }
+}
    
     // 내전 시간 변경 ✅
     if (commandName === '내전시간변경') {
@@ -338,31 +505,26 @@ client.on('interactionCreate', async (interaction) => {
       const startTime = options.getString('시간');
       const isAram = commandName === '칼바람내전';
 
-      // ✅ 버튼 정의 (4가지)
-      const joinBtn = new ButtonBuilder()
-        .setCustomId('join_game')
-        .setLabel('✅ 내전참여')
-        .setStyle(ButtonStyle.Success);
+     // ✅ 버튼 정의 (3가지)
+        const joinBtn = new ButtonBuilder()
+       .setCustomId('join_game')
+       .setLabel('✅ 내전참여')
+       .setStyle(ButtonStyle.Success);
 
-      const leaveBtn = new ButtonBuilder()
-        .setCustomId('leave_game')
-        .setLabel('❎ 내전취소')
-        .setStyle(ButtonStyle.Danger);
+       const leaveBtn = new ButtonBuilder()
+       .setCustomId('leave_game')
+       .setLabel('❎ 내전취소')
+       .setStyle(ButtonStyle.Danger);
 
       const lastBtn = new ButtonBuilder()
-        .setCustomId('last_call')
-        .setLabel('⛔ 내전막판')
-        .setStyle(ButtonStyle.Primary);
+      .setCustomId('last_call')
+      .setLabel('⛔ 내전막판')
+      .setStyle(ButtonStyle.Primary);
 
-      const waitBtn = new ButtonBuilder()
-        .setCustomId('wait_game')
-        .setLabel('⏳ 내전대기')
-        .setStyle(ButtonStyle.Secondary);
+   // ✅ 버튼 묶음
+       const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
-      // 버튼 묶음
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn, waitBtn);
-
-      // ✅ embed 사용 (버튼만 부착)
+ // ✅ embed 사용 (버튼만 부착)
       const replyMsg = await interaction.reply({
         embeds: [
           renderEmbed(
@@ -441,6 +603,44 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: '⚠️ 해당 유저는 막판 명단에 없습니다.', ephemeral: true });
       }
     }
+
+    // -------------------
+    // /참여자삭제
+    // -------------------
+    if (commandName === '참여자삭제') {
+      const allowedRoles = ['689438958140260361', '1415895023102197830'];
+      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+        return interaction.reply({ content: '⚠️ 권한이 없습니다.', ephemeral: true });
+      }
+
+      const target = options.getUser('유저');
+      if (!target) return interaction.reply({ content: '❌ 유저를 지정해주세요.', ephemeral: true });
+
+      // 현재 채널의 최신 내전 메시지 탐색
+      const messages = await interaction.channel.messages.fetch({ limit: 30 });
+      const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+      if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+
+      const state = roomState.get(recruitMsg.id);
+
+      let removed = false;
+      if (state.members.includes(target.id)) {
+        state.members = state.members.filter(m => m !== target.id);
+        removed = true;
+      } else if (state.wait.has(target.id)) {
+        state.wait.delete(target.id);
+        removed = true;
+      }
+
+      if (removed) {
+        saveRooms();
+        backupRooms(state);
+        await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
+        return interaction.reply(`✅ <@${target.id}> 님을 참여자/대기자 명단에서 삭제했습니다.`);
+      } else {
+        return interaction.reply({ content: '⚠️ 해당 유저는 참여자/대기자 명단에 없습니다.', ephemeral: true });
+      }
+    }
   }
 
   // -------------------
@@ -462,40 +662,131 @@ client.on('interactionCreate', async (interaction) => {
         components: message.components
       });
 
-// ✅ 내전참여
-if (customId === 'join_game') {
-  await interaction.deferReply({ ephemeral: true });  // 응답 확보
+    // ✅ 내전참여 (UI만 띄움)
+    if (customId === 'join_game') {
+      await interaction.deferReply({ ephemeral: true });
 
-  const isAlreadyIn = state.members.includes(user.id) || state.wait.has(user.id);
+      // 주 라인 선택
+      const mainLaneSelect = new StringSelectMenuBuilder()
+        .setCustomId('select_main_lane')
+        .setPlaceholder('주 라인 선택')
+        .addOptions(laneOptions);
 
-  if (!isAlreadyIn) {
-    // 최대 40 제한
-    if (state.members.length + state.wait.size >= 40) {
-      return interaction.editReply({ content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.' });
+      // 부 라인 선택
+      const subLaneSelect = new StringSelectMenuBuilder()
+        .setCustomId('select_sub_lane')
+        .setPlaceholder('부 라인 선택')
+        .addOptions(laneOptions);
+
+      // 티어 선택
+      const tierSelect = new StringSelectMenuBuilder()
+        .setCustomId('select_tier')
+        .setPlaceholder('티어 선택')
+        .addOptions(tierOptions);
+
+      // 확인 버튼
+      const confirmButton = new ButtonBuilder()
+        .setCustomId(`confirm_join_${user.id}`)
+        .setLabel('✅ 확인')
+        .setStyle(ButtonStyle.Success);
+
+      const row1 = new ActionRowBuilder().addComponents(mainLaneSelect);
+      const row2 = new ActionRowBuilder().addComponents(subLaneSelect);
+      const row3 = new ActionRowBuilder().addComponents(tierSelect);
+      const row4 = new ActionRowBuilder().addComponents(confirmButton);
+
+      return interaction.editReply({
+        content: '🎮 내전에 참여하려면 **주/부 라인 + 티어**를 선택하고 확인을 눌러주세요!',
+        components: [row1, row2, row3, row4],
+        ephemeral: true
+      });
     }
 
-    // 참여/대기 로직
-    if (state.members.length > 0 && state.members.length % 10 === 0) {
-      state.wait.add(user.id);
-      if (state.wait.size === 10) {
-        const toPromote = Array.from(state.wait).slice(0, 10);
-        toPromote.forEach(uid => {
-          state.members.push(uid);
-          state.wait.delete(uid);
+    // ✅ 확인 버튼 처리
+    if (customId.startsWith('confirm_join_')) {
+      await interaction.deferUpdate();
+
+      const uid = customId.replace('confirm_join_', '');
+      const mainLane = state.lanes[uid]?.main;
+      const subLane  = state.lanes[uid]?.sub;
+      const tier     = state.tiers[uid];
+
+      // 주/부라인 & 티어 검증
+      if (!mainLane || !subLane || !tier ||
+          mainLane === '없음' || subLane === '없음' || tier === '없음') {
+        return interaction.followUp({
+          content: '❌ 주/부 라인과 티어를 정확하게 선택해주세요 ❌',
+          ephemeral: true
         });
       }
-    } else {
-      state.members.push(user.id);
+
+      // 최종 참여 반영
+      if (!state.members.includes(uid) && !state.wait.has(uid)) {
+        if (state.members.length >= 40) {
+          state.wait.add(uid);
+        } else {
+          state.members.push(uid);
+        }
+      }
+
+      state.joinedAt[uid] = Date.now();
+      saveRooms();
+      backupRooms(state);
+
+      // ✅ 로그 찍기
+      try {
+        const member = await interaction.guild.members.fetch(uid);
+        console.log(`✅ 내전참여 확정: ${member.displayName} (${member.user.tag})`);
+      } catch (err) {
+        console.log(`✅ 내전참여 확정: <@${uid}> (닉네임 불러오기 실패)`);
+      }
+
+      return interaction.followUp({
+        content: `✅ ${interaction.user.displayName} 님 내전에 참여 완료!`,
+        ephemeral: true
+      });
     }
 
-    state.joinedAt[user.id] = Date.now();
-    saveRooms();
-    backupRooms(state);
+    // ❎ 내전취소 + 대기자 승급 반영
+    if (customId === 'leave_game') {
+      const wasMember = state.members.includes(user.id);
+      state.members = state.members.filter(m => m !== user.id);
+      state.wait.delete(user.id);
+      state.last.delete(user.id);
 
-    // ✅ 로그 추가
-    console.log(`✅ 내전참여: ${interaction.user.tag} (${interaction.user.id})`);
-  }
+      // 빈자리 생겼고 대기자가 있다면 1명 승급
+      if (wasMember && state.wait.size > 0) {
+        const next = state.wait.values().next().value;
+        state.wait.delete(next);
+        state.members.push(next);
 
+        // ✅ 승급 시 라인/티어 그대로 유지
+        const mainLane = state.lanes[next]?.main || '없음';
+        const subLane  = state.lanes[next]?.sub  || '없음';
+        const tier     = state.tiers[next]       || '없음';
+
+        try {
+          const promoted = await interaction.guild.members.fetch(next);
+          console.log(`🔼 대기자 승급: ${promoted.displayName} (${promoted.user.tag}) → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
+        } catch (err) {
+          console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
+        }
+      }
+
+      // ✅ 로그 (취소한 사람)
+      try {
+        const member = await interaction.guild.members.fetch(user.id);
+        console.log(`❎ 내전취소: ${member.displayName} (${member.user.tag})`);
+      } catch (err) {
+        console.log(`❎ 내전취소: <@${user.id}> (닉네임 불러오기 실패)`);
+      }
+
+      saveRooms();
+      backupRooms(state);
+      return updateMessage();
+    }
+
+}
   // ✅ 개인 설정창 생성
   const mainLaneSelect = new StringSelectMenuBuilder()
     .setCustomId(`lane_${user.id}`)
@@ -524,7 +815,7 @@ if (customId === 'join_game') {
 
   const tierSelect = new StringSelectMenuBuilder()
     .setCustomId(`tier_${user.id}`)
-    .setPlaceholder('티어 선택')
+    .setPlaceholder('14~15최고티어')
     .addOptions(
       { label: '아이언', value: 'I', default: state.tiers[user.id] === 'I' },
       { label: '브론즈', value: 'B', default: state.tiers[user.id] === 'B' },
@@ -536,7 +827,7 @@ if (customId === 'join_game') {
       { label: '마스터', value: 'M', default: state.tiers[user.id] === 'M' },
       { label: '그마', value: 'GM', default: state.tiers[user.id] === 'GM' },
       { label: '챌린저', value: 'C', default: state.tiers[user.id] === 'C' },
-      { label: '14~15 최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
+      { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
     );
 
   // 공용 임베드 갱신
@@ -576,51 +867,48 @@ if (customId === 'join_game') {
       return updateMessage();
     }
 
-    // ⛔ 내전막판
-    if (customId === 'last_call') {
-      state.last.add(user.id);
+   // ⛔ 내전막판
+if (customId === 'last_call') {
+  const wasMember = state.members.includes(user.id);
 
-      // 막판은 참여 자리도 비움
-      const wasMember = state.members.includes(user.id);
-      state.members = state.members.filter(m => m !== user.id);
+  if (wasMember) {
+    // 참여자 → 막판 이동
+    state.last.add(user.id);
+    state.members = state.members.filter(m => m !== user.id);
 
-      // 빈자리 → 대기자 자동 승급
-      if (wasMember && state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
+    // 빈자리만큼 대기자에서 승급
+    if (state.wait.size > 0) {
+      const next = state.wait.values().next().value;
+      state.wait.delete(next);
+      state.members.push(next);
+
+      // ✅ 승급 로그 찍기
+      const mainLane = state.lanes[next]?.main || '없음';
+      const subLane  = state.lanes[next]?.sub  || '없음';
+      const tier     = state.tiers[next]       || '없음';
+
+      try {
+        const promoted = await interaction.guild.members.fetch(next);
+        console.log(`🔼 대기자 승급: ${promoted.displayName} (${promoted.user.tag}) → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
+      } catch (err) {
+        console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
       }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
     }
 
-    // ⏳ 내전대기
-    if (customId === 'wait_game') {
-      if (state.members.includes(user.id) || state.wait.has(user.id)) {
-        return interaction.reply({ content: '⚠️ 이미 신청하셨습니다.', ephemeral: true });
-      }
-      if (state.members.length + state.wait.size >= 40) {
-        return interaction.reply({ content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.', ephemeral: true });
-      }
-
-      state.wait.add(user.id);
-
-      // 대기 10명 → 일괄 승급
-      if (state.wait.size === 10) {
-        const toPromote = Array.from(state.wait).slice(0, 10);
-        toPromote.forEach(uid => {
-          state.members.push(uid);
-          state.wait.delete(uid);
-        });
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
+    // ✅ 막판 로그
+    try {
+      const member = await interaction.guild.members.fetch(user.id);
+      console.log(`⛔ 내전막판: ${member.displayName} (${member.user.tag})`);
+    } catch (err) {
+      console.log(`⛔ 내전막판: <@${user.id}> (닉네임 불러오기 실패)`);
     }
   }
+
+     saveRooms();
+     backupRooms(state);
+     return updateMessage();
+   }
+}
 
   // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
