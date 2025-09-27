@@ -1,4 +1,40 @@
+// ✅ 환경 변수 불러오기
+require('dotenv').config();
+const { 
+  Client, 
+  GatewayIntentBits, 
+  REST, 
+  Routes, 
+  SlashCommandBuilder,
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle,
+  StringSelectMenuBuilder
+} = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const fsP = require('fs/promises');
+const backupRooms = require('./backupRooms');
+
+// ✅ 태그라인 → 플랫폼 라우팅 매핑 (third-party-code는 플랫폼 도메인 사용)
+const TAGLINE_TO_PLATFORM = {
+  KR1: 'kr',     JP1: 'jp1',   NA1: 'na1',  EUW1: 'euw1', EUN1: 'eun1',
+  TR1: 'tr1',    RU: 'ru',     OC1: 'oc1',  BR1: 'br1',   LA1: 'la1', LA2: 'la2',
+  PBE1: 'pbe1'
+};
+
+// ✅ 클라이언트 생성
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ],
+});
+
 // ✅ 환경 변수 및 기본 경로
+const path = require('path');
 const token = process.env.BLIBOT_TOKEN;
 const clientId = '1392425978265075772';
 const guildIds = ["1309877071308394506", "686518979292037142"];
