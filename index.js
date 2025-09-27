@@ -247,66 +247,70 @@ client.on('interactionCreate', async (interaction) => {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-    // ✅ 계정등록
-    if (commandName === '계정등록') {
-      const riotNick = options.getString('라이엇닉네임');
-      const [gameName, tagLine] = riotNick.split('#');
-      if (!gameName || !tagLine) {
-        return interaction.reply(`❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#KR1)`);
-      }
+// ✅ 계정등록
+if (commandName === '계정등록') {
+  const riotNick = options.getString('라이엇닉네임');
+  const [gameName, tagLine] = riotNick.split('#');
+  if (!gameName || !tagLine) {
+    return interaction.reply(`❌ 닉네임 형식이 올바르지 않습니다. (예: 새 벽 #반딧불이)`);
+  }
 
-      try {
-        const response = await fetch(
-          `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
-          { headers: { "X-Riot-Token": riotKey } }
-        );
+  try {
+    const response = await fetch(
+      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+      { headers: { "X-Riot-Token": riotKey } }
+    );
 
-        if (response.status === 404) {
-          return interaction.reply(`❌ 없는 계정입니다. 정확한 계정을 등록해주시길 바랍니다.`);
-        }
-        if (!response.ok) {
-          return interaction.reply(`❌ Riot API 오류: 코드 ${response.status}`);
-        }
-
-        const data = await response.json();
-        const officialName = `${data.gameName}#${data.tagLine}`;
-
-        let accounts = loadAccounts();
-        if (!accounts[userId]) {
-          accounts[userId] = {
-            riotName: officialName,
-            puuid: data.puuid,
-            mmr: 1000,
-            wins: 0,
-            losses: 0,
-            streak: 0,
-            gamesPlayed: 0,
-            userTag: interaction.user.tag,
-            type: "main"
-          };
-          saveAccounts(accounts);
-          return interaction.reply(`✅ <@${userId}> 님의 계정이 **${officialName}** 으로 등록되었습니다!`);
-        } else {
-          return interaction.reply(`⚠️ 이미 등록된 계정이 있습니다: **${accounts[userId].riotName}**`);
-        }
-      } catch (err) {
-        console.error("계정등록 오류:", err);
-        return interaction.reply(`❌ 계정 등록 중 오류가 발생했습니다.`);
-      }
+    if (response.status === 404) {
+      return interaction.reply(`❌ 없는 계정입니다. 정확한 계정을 등록해주시길 바랍니다.`);
+    }
+    if (!response.ok) {
+      return interaction.reply(`❌ Riot API 오류: 코드 ${response.status}`);
     }
 
-    // ✅ 계정삭제
-    if (commandName === '계정삭제') {
-      let accounts = loadAccounts();
-      if (accounts[userId]) {
-        delete accounts[userId];
-        saveAccounts(accounts);
-        return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
-      } else {
-        return interaction.reply(`❌ 등록된 계정이 없습니다.`);
-      }
-    }
+    const data = await response.json();
+    const officialName = `${data.gameName}#${data.tagLine}`;
 
+    let accounts = await loadAccounts(); // ✅ await 추가
+    if (!accounts[userId]) {
+      accounts[userId] = {
+        riotName: officialName,
+        puuid: data.puuid,
+        mmr: 1000,
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        gamesPlayed: 0,
+        userTag: interaction.user.tag,
+        type: "main"
+      };
+      await saveAccounts(accounts); // ✅ await 추가
+      return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 등록되었습니다!`);
+    } else {
+      return interaction.reply(`⚠️ 이미 등록된 계정이 있습니다: **${accounts[userId].riotName}**`);
+    }
+  } catch (err) {
+    console.error("❌ 계정등록 오류:", err);
+    return interaction.reply(`❌ 계정 등록 중 오류가 발생했습니다.`);
+  }
+}
+
+// ✅ 계정삭제
+if (commandName === '계정삭제') {
+  try {
+    let accounts = await loadAccounts(); // ✅ await 추가
+    if (accounts[userId]) {
+      delete accounts[userId];
+      await saveAccounts(accounts); // ✅ await 추가
+      return interaction.reply(`🗑️ <@${userId}> 님의 계정 데이터가 삭제되었어요!`);
+    } else {
+      return interaction.reply(`❌ 등록된 계정이 없습니다.`);
+    }
+  } catch (err) {
+    console.error("❌ 계정삭제 오류:", err);
+    return interaction.reply(`⚠️ 계정 삭제 중 오류가 발생했습니다.`);
+  }
+}
     // ✅ 부캐등록
     if (commandName === '부캐등록') {
       const subNick = options.getString('부캐닉네임');
