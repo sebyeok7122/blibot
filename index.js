@@ -59,6 +59,14 @@ async function writeJSONSafe(file, obj) {
   await fsP.rename(tmp, file);
 }
 
+// ✅ accounts.json 불러오기/저장
+async function loadAccounts() {
+  return await readJSONSafe(accountPath, {});
+}
+async function saveAccounts(accounts) {
+  await writeJSONSafe(accountPath, accounts);
+}
+
 // ✅ roomState 저장/복원
 const roomState = new Map();
 function saveRooms() {
