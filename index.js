@@ -672,15 +672,12 @@ if (interaction.isButton()) {
 if (interaction.isStringSelectMenu()) {
   const { customId, values, user } = interaction;
 
-  // ✅ 먼저 ACK (상호작용 실패 방지)
-  await interaction.deferUpdate();
-
   // customId 형식: lane_<userId> | sublane_<userId> | tier_<userId>
   const [type, ownerId] = customId.split('_');
   if (ownerId !== user.id) {
-    return interaction.followUp({
+    return interaction.reply({
       content: '❌ 이 메뉴는 당신 전용입니다.',
-      flags: 64
+      ephemeral: true
     });
   }
 
@@ -690,9 +687,9 @@ if (interaction.isStringSelectMenu()) {
     m => m.author.id === interaction.client.user.id && roomState.has(m.id)
   );
   if (!recruitMsg) {
-    return interaction.followUp({
+    return interaction.reply({
       content: '⚠️ 내전 방을 찾을 수 없습니다.',
-      flags: 64
+      ephemeral: true
     });
   }
 
@@ -742,6 +739,9 @@ if (interaction.isStringSelectMenu()) {
     const tierName = TIER_LABELS[tierVal] || tierVal;
     console.log(`✅ ${user.tag} 참여 확정 → 주:${laneName}, 부:${subLanes.join(',')} 티어:${tierName}`);
   }
+
+  // ✅ 마지막에만 deferUpdate 실행
+  await interaction.deferUpdate();
 } // ← if 블록 닫기
 
 }); // ← 이벤트 핸들러 전체 닫기
