@@ -802,12 +802,13 @@ if (interaction.isStringSelectMenu()) {
   // 선택 값 저장
   if (type === 'lane') {
     state.lanes[user.id].main = values[0];
-  } else if (type === 'sublane') {
-    state.lanes[user.id].sub = values.includes('none') ? [] : values;
-  } else if (type === 'tier') {
-    state.tiers[user.id] = values[0];
-  }
-
+} else if (type === 'sublane') {
+    // 'none' 제거하고 나머지만 저장
+  const sanitized = values.filter(v => v !== 'none');
+     state.lanes[user.id].sub = sanitized.length ? sanitized : [];
+} else if (type === 'tier') {
+     state.tiers[user.id] = values[0];
+}
   saveRooms();
   backupRooms(state);
 
