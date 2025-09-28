@@ -472,52 +472,77 @@ if (interaction.isButton()) {
     }
   }
 }
+// -------------------
+// 3) 선택 메뉴 핸들러 (확인 버튼 없이 즉시 반영)
+// -------------------
+if (interaction.isStringSelectMenu()) {
+  const { customId, values, user } = interaction;
+  const [type, ownerId] = customId.split('_');
+  if (ownerId !== user.id) {
+    return interaction.reply({ content: '❌ 이 메뉴는 당신 전용입니다.', ephemeral: true });
+  }
 
-  // -------------------
-  // 3) 선택 메뉴 핸들러 (확인 버튼 없이 즉시 반영)
-  // -------------------
-  if (interaction.isStringSelectMenu()) {
-    const { customId, values, user } = interaction;
-    const [type, ownerId] = customId.split('_');
-    if (ownerId !== user.id) {
-      return interaction.reply({ content: '❌ 이 메뉴는 당신 전용입니다.', ephemeral: true });
+  const messages = await interaction.channel.messages.fetch({ limit: 30 });
+  const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
+  if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
+
+  const key = recruitMsg.id;
+  const state = roomState.get(key);
+  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
+
+  if (type === 'lane') state.lanes[user.id].main = values[0];
+  else if (type === 'sublane') state.lanes[user.id].sub = values.filter(v => v !== 'none');
+  else if (type === 'tier') state.tiers[user.id] = values[0];
+
+  saveRooms();
+  backupRooms(state);
+
+  const mainLane = state.lanes[user.id]?.main;
+  const subLanes = state.lanes[user.id]?.sub || [];
+  const tierVal  = state.tiers[user.id];
+
+  // ✅ 조건 충족하면 참여 처리
+  if (mainLane && subLanes.length > 0 && tierVal &&
+      !state.members.includes(user.id) && !state.wait.has(user.id)) {
+    
+    // 🔹 40명 초과 → 참여 불가
+    if (state.members.length >= 40) {
+      return interaction.reply({
+        content: '❌ 인원 40명 초과, 더 이상 참여할 수 없습니다.',
+        ephemeral: true
+      });
     }
 
-    const messages = await interaction.channel.messages.fetch({ limit: 30 });
-    const recruitMsg = messages.find(m => m.author.id === interaction.client.user.id && roomState.has(m.id));
-    if (!recruitMsg) return interaction.reply({ content: '⚠️ 내전 방을 찾을 수 없습니다.', ephemeral: true });
-
-    const key = recruitMsg.id;
-    const state = roomState.get(key);
-    state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
-
-    if (type === 'lane') state.lanes[user.id].main = values[0];
-    else if (type === 'sublane') state.lanes[user.id].sub = values.filter(v => v !== 'none');
-    else if (type === 'tier') state.tiers[user.id] = values[0];
-
-    saveRooms();
-    backupRooms(state);
-
-    const mainLane = state.lanes[user.id]?.main;
-    const subLanes = state.lanes[user.id]?.sub;
-    const tierVal  = state.tiers[user.id];
-
-    if (mainLane && subLanes.length > 0 && tierVal && !state.members.includes(user.id) && !state.wait.has(user.id)) {
-      if (state.members.length >= 40) state.wait.add(user.id);
-      else state.members.push(user.id);
-      state.joinedAt[user.id] = Date.now();
+    // 🔹 10명 단위 자동 분리
+    if (state.members.length % 10 === 0 && state.members.length !== 0) {
+      state.wait.add(user.id);
+      console.log(`⚠️ ${user.tag} → 대기열로 이동 (10명 단위 분리)`);
+    } else {
+      state.members.push(user.id);
+      console.log(`✅ ${user.tag} → 참여자 명단 추가`);
     }
 
+    // 🔹 대기자 10명 쌓이면 → 단체 승급
+    if (state.wait.size >= 10) {
+      const promoteBatch = [...state.wait].slice(0, 10);
+      promoteBatch.forEach(uid => {
+        state.wait.delete(uid);
+        state.members.push(uid);
+      });
+      console.log(`🔼 대기자 10명 단체 승급됨: ${promoteBatch.map(id => `<@${id}>`).join(', ')}`);
+    }
+
+    state.joinedAt[user.id] = Date.now();
     saveRooms();
     backupRooms(state);
+  }
 
-    await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
-    console.log(`✅ ${user.tag} 참여 확정 → 주:${mainLane}, 부:${subLanes.join(',')} 티어:${tierVal}`);
-
+  await recruitMsg.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)] });
+  console.log(`✅ ${user.tag} 참여 확정 → 주:${mainLane}, 부:${subLanes.join(',')} 티어:${tierVal}`);
 
   // ✅ 선택 반영만 하고, UI는 그대로 유지
   await interaction.deferUpdate();
- }
+}
 
 }); // ← interactionCreate 닫기
 
