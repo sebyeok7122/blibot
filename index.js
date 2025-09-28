@@ -42,6 +42,12 @@ const tierOptions = [
   { label: '없음', value: '없음' },
 ];
 
+// ✅ 공용 티어 라벨 (로그/버튼 핸들러, 선택 핸들러 공용)
+const TIER_LABELS = {
+  I:'아이언', B:'브론즈', S:'실버', G:'골드',
+  P:'플래티넘', E:'에메랄드', D:'다이아', M:'마스터',
+  GM:'그마', C:'챌린저', T1415:'14~15최고티어'
+};
 
 // ✅ fetch 추가
 const fetch = require('node-fetch');
@@ -601,10 +607,10 @@ if (interaction.isButton()) {
       state.wait.delete(next);
       state.members.push(next);
 
-      // ✅ 승급 로그 (tierMap 적용)
+      // ✅ 승급 로그 (TIER_LABELS 적용)
       const mainLane = state.lanes[next]?.main || '없음';
       const subLane  = state.lanes[next]?.sub  || '없음';
-      const tier     = tierMap[state.tiers[next]] || '없음';
+      const tier     = TIER_LABELS[state.tiers[next]] || '없음';
 
       try {
         const promoted = await interaction.guild.members.fetch(next);
@@ -632,10 +638,10 @@ if (interaction.isButton()) {
         state.wait.delete(next);
         state.members.push(next);
 
-        // ✅ 승급 로그 (tierMap 적용)
+        // ✅ 승급 로그 (TIER_LABELS 적용)
         const mainLane = state.lanes[next]?.main || '없음';
         const subLane  = state.lanes[next]?.sub  || '없음';
-        const tier     = tierMap[state.tiers[next]] || '없음';
+        const tier     = TIER_LABELS[state.tiers[next]] || '없음';
 
         try {
           const promoted = await interaction.guild.members.fetch(next);
@@ -645,8 +651,8 @@ if (interaction.isButton()) {
         }
       }
 
-      // ✅ 막판 로그 (tierMap 적용)
-      const tier = tierMap[state.tiers[user.id]] || '없음';
+      // ✅ 막판 로그 (TIER_LABELS 적용)
+      const tier = TIER_LABELS[state.tiers[user.id]] || '없음';
       try {
         const member = await interaction.guild.members.fetch(user.id);
         console.log(`⛔ 내전막판: ${member.displayName} (${member.user.tag}) → 티어:${tier}`);
@@ -660,20 +666,22 @@ if (interaction.isButton()) {
     }
   }
 }
-
 // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
 // -------------------
 if (interaction.isStringSelectMenu()) {
   const { customId, values, user } = interaction;
 
+  // ✅ 먼저 ACK (상호작용 실패 방지)
+  await interaction.deferUpdate();
+
   // customId 형식: lane_<userId> | sublane_<userId> | tier_<userId>
   const [type, ownerId] = customId.split('_');
   if (ownerId !== user.id) {
-    return interaction.reply({
-       content: '⚠️ 내전 방을 찾을 수 없습니다.',
-        flags: 64
-   });
+    return interaction.followUp({
+      content: '❌ 이 메뉴는 당신 전용입니다.',
+      flags: 64
+    });
   }
 
   // 현재 채널의 최신 내전 메시지 상태 찾기
@@ -682,9 +690,9 @@ if (interaction.isStringSelectMenu()) {
     m => m.author.id === interaction.client.user.id && roomState.has(m.id)
   );
   if (!recruitMsg) {
-    return interaction.reply({
+    return interaction.followUp({
       content: '⚠️ 내전 방을 찾을 수 없습니다.',
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -729,11 +737,11 @@ if (interaction.isStringSelectMenu()) {
       embeds: [renderEmbed(state, state.startTime, state.isAram)]
     });
 
-    console.log(`✅ ${user.tag} 참여 확정 → 주:${mainLane}, 부:${subLanes.join(',')} 티어:${tierVal}`);
+    // ✅ 로그 찍을 때 라벨 적용
+    const laneName = { top:'탑', jungle:'정글', mid:'미드', adc:'원딜', support:'서폿' }[mainLane] || mainLane;
+    const tierName = TIER_LABELS[tierVal] || tierVal;
+    console.log(`✅ ${user.tag} 참여 확정 → 주:${laneName}, 부:${subLanes.join(',')} 티어:${tierName}`);
   }
-
-  // ✅ 선택 반영만 하고, UI는 그대로 유지
-  await interaction.deferUpdate();
 } // ← if 블록 닫기
 
 }); // ← 이벤트 핸들러 전체 닫기
