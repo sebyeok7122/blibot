@@ -777,7 +777,7 @@ if (interaction.isStringSelectMenu()) {
   if (ownerId !== user.id) {
     return interaction.reply({
       content: '❌ 이 메뉴는 당신 전용입니다.',
-      flags: 64 // ✅ deprecated ephemeral 옵션 대신 flags 사용
+      ephemeral: true
     });
   }
 
@@ -789,7 +789,7 @@ if (interaction.isStringSelectMenu()) {
   if (!recruitMsg) {
     return interaction.reply({
       content: '⚠️ 내전 방을 찾을 수 없습니다.',
-      flags: 64
+      ephemeral: true
     });
   }
 
@@ -797,18 +797,18 @@ if (interaction.isStringSelectMenu()) {
   const state = roomState.get(key);
 
   // 기본 구조 보장
-  if (!state.lanes[user.id]) state.lanes[user.id] = { main: null, sub: [] };
+  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
 
-  // 선택 값 저장
   if (type === 'lane') {
     state.lanes[user.id].main = values[0];
-} else if (type === 'sublane') {
-    // 'none' 제거하고 나머지만 저장
-  const sanitized = values.filter(v => v !== 'none');
-     state.lanes[user.id].sub = sanitized.length ? sanitized : [];
-} else if (type === 'tier') {
-     state.tiers[user.id] = values[0];
-}
+  } else if (type === 'sublane') {
+    // ✅ 'none' 제거하고 나머지만 저장
+    const sanitized = values.filter(v => v !== 'none');
+    state.lanes[user.id].sub = sanitized.length ? sanitized : [];
+  } else if (type === 'tier') {
+    state.tiers[user.id] = values[0];
+  }
+
   saveRooms();
   backupRooms(state);
 
