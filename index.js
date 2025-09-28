@@ -670,13 +670,15 @@ if (interaction.isButton()) {
     const subLanes = state.lanes[uid]?.sub || [];
     const tierVal  = state.tiers[uid] || null;
 
-    // 값 없으면 에러 안내
-    if (!mainLane || subLanes.length === 0 || !tierVal) {
-      return interaction.editReply({
-        content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
-        flags: 64
-      });
-    }
+// 값 없으면 에러 안내 (주/부라인, 티어 모두 필수)
+if (!mainLane || mainLane === 'none' ||
+    !subLanes || subLanes.length === 0 ||
+    !tierVal || tierVal === 'none') {
+  return interaction.editReply({
+    content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
+    flags: 64
+  });
+}
 
     // 멤버 등록
     if (!state.members.includes(uid) && !state.wait.has(uid)) {
