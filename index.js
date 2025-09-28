@@ -633,6 +633,7 @@ if (interaction.isButton()) {
     new ActionRowBuilder().addComponents(confirmButton) // ✅ 확인 버튼 단독 row
   ]
 });
+} // ← 이거 추가해야 함 (join_game if 닫기)
 
   // ✅ 확인 버튼 처리
   if (customId.startsWith('confirm_join_')) {
