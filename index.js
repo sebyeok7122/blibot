@@ -779,20 +779,23 @@ if (interaction.isButton()) {
         { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
       );
 
-    const confirmButton = new ButtonBuilder()
-      .setCustomId(`confirm_join_${user.id}`)
-      .setLabel('✅ 확인')
-      .setStyle(ButtonStyle.Success);
+     // 확인 버튼
+      const confirmButton = new ButtonBuilder()
+       .setCustomId(`confirm_join_${interaction.user.id}`)
+       .setLabel('✅ 확인')
+       .setStyle(ButtonStyle.Success);
 
-    return interaction.editReply({
+      return interaction.editReply({
       content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
       components: [
-        new ActionRowBuilder().addComponents(mainLaneSelect),
-        new ActionRowBuilder().addComponents(subLaneSelect),
-        new ActionRowBuilder().addComponents(tierSelect),
-        new ActionRowBuilder().addComponents(confirmButton)
-      ]
-    });
+       new ActionRowBuilder().addComponents(mainLaneSelect),
+       new ActionRowBuilder().addComponents(subLaneSelect),
+       new ActionRowBuilder().addComponents(tierSelect),
+       new ActionRowBuilder().addComponents(confirmButton) // ✅ 추가!
+  ],
+  ephemeral: true
+});
+
   }
 
   // ✅ 확인 버튼 처리
