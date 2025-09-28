@@ -590,9 +590,9 @@ if (interaction.isButton()) {
     });
 
   // ✅ 내전참여 → 개인 설정창 열기
-     if (customId === 'join_game') {
-      // ✅ 딱 한 번만 deferReply
-     await interaction.deferReply({ ephemeral: true });
+  if (customId === 'join_game') {
+    // ✅ 딱 한 번만 deferReply
+    await interaction.deferReply({ flags: 64 });
 
     const mainLaneSelect = new StringSelectMenuBuilder()
       .setCustomId(`lane_${user.id}`)
@@ -636,67 +636,65 @@ if (interaction.isButton()) {
         { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
       );
 
-     // 확인 버튼
-      const confirmButton = new ButtonBuilder()
-       .setCustomId(`confirm_join_${interaction.user.id}`)
-       .setLabel('✅ 확인')
-       .setStyle(ButtonStyle.Success);
+    // 확인 버튼
+    const confirmButton = new ButtonBuilder()
+      .setCustomId(`confirm_join_${interaction.user.id}`)
+      .setLabel('✅ 확인')
+      .setStyle(ButtonStyle.Success);
 
-    // 그다음 수정으로 컴포넌트 세팅
     return interaction.editReply({
-    content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
-    components: [
-    new ActionRowBuilder().addComponents(mainLaneSelect),
-    new ActionRowBuilder().addComponents(subLaneSelect),
-    new ActionRowBuilder().addComponents(tierSelect),
-    new ActionRowBuilder().addComponents(confirmButton) // ✅ 확인 버튼 단독 row
-  ]
-});
-} // ← 이거 추가해야 함 (join_game if 닫기)
-
-// ✅ 확인 버튼 처리 (전체 교체)
-if (customId.startsWith('confirm_join_')) {
-  const uid = customId.replace('confirm_join_', '');
-
-  // state 기본 구조 보장
-  if (!state.lanes[uid]) state.lanes[uid] = { main: null, sub: [] };
-  if (!state.tiers[uid]) state.tiers[uid] = null;
-
-  // 🟢 확인 버튼 클릭 시 우선 deferReply (ephemeral)
-  await interaction.deferReply({ ephemeral: true });
-
-  // 🟢 selectMenu 값이 state에 들어올 때까지 아주 짧게 대기
-  await new Promise(r => setTimeout(r, 300)); // 0.3초 정도
-
-  // 🟢 state 최신값 다시 검사
-  const mainLane = state.lanes[uid].main;
-  const subLanes = state.lanes[uid].sub;
-  const tierVal  = state.tiers[uid];
-
-  if (!mainLane || !subLanes.length || !tierVal) {
-    return interaction.editReply({
-      content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
-      ephemeral: true
+      content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
+      components: [
+        new ActionRowBuilder().addComponents(mainLaneSelect),
+        new ActionRowBuilder().addComponents(subLaneSelect),
+        new ActionRowBuilder().addComponents(tierSelect),
+        new ActionRowBuilder().addComponents(confirmButton) // ✅ 확인 버튼 단독 row
+      ]
     });
   }
 
-  // 🟢 멤버 추가
-  if (!state.members.includes(uid) && !state.wait.has(uid)) {
-    if (state.members.length >= 40) state.wait.add(uid);
-    else state.members.push(uid);
+  // ✅ 확인 버튼 처리
+  if (customId.startsWith('confirm_join_')) {
+    const uid = customId.replace('confirm_join_', '');
+
+    // ✅ 기본 구조 보장
+    if (!state.lanes[uid]) state.lanes[uid] = { main: null, sub: [] };
+    if (!state.tiers[uid]) state.tiers[uid] = null;
+
+    // 🟢 잠깐 defer → select 값 들어올 때까지 대기
+    await interaction.deferReply({ flags: 64 });
+    await new Promise(r => setTimeout(r, 300)); // 0.3초 지연
+
+    // 🟢 최신값 다시 가져오기
+    const mainLane = state.lanes[uid]?.main || null;
+    const subLanes = state.lanes[uid]?.sub || [];
+    const tierVal  = state.tiers[uid] || null;
+
+    // 값 없으면 에러 안내
+    if (!mainLane || subLanes.length === 0 || !tierVal) {
+      return interaction.editReply({
+        content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
+        flags: 64
+      });
+    }
+
+    // 멤버 등록
+    if (!state.members.includes(uid) && !state.wait.has(uid)) {
+      if (state.members.length >= 40) state.wait.add(uid);
+      else state.members.push(uid);
+    }
+
+    state.joinedAt[uid] = Date.now();
+    saveRooms();
+    backupRooms(state);
+    await updateMessage();
+
+    return interaction.editReply({
+      content: `✅ <@${uid}> 님 내전 참여 완료!`,
+      flags: 64
+    });
   }
 
-  // 🟢 시간 기록
-  state.joinedAt[uid] = Date.now();
-  saveRooms();
-  backupRooms(state);
-  await updateMessage();
-
-  return interaction.editReply({
-    content: `✅ <@${uid}> 님 내전 참여 완료!`,
-    ephemeral: true
-  });
-}
   // ❎ 내전취소
   if (customId === 'leave_game') {
     const wasMember = state.members.includes(user.id);
