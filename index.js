@@ -483,13 +483,18 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
-  // ⚠️ fetchReply 제거, 대신 fetchReply() 따로 호출
-  await interaction.reply({
-    embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
+  // ✅ ACK 먼저 보내고, 메시지는 새로 보내기
+  await interaction.deferReply();
+  const replyMsg = await interaction.followUp({
+    embeds: [renderEmbed(
+      { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} },
+      startTime,
+      isAram
+    )],
     components: [row]
   });
-  const replyMsg = await interaction.fetchReply();
 
+  // ✅ 상태 저장
   roomState.set(replyMsg.id, { 
     members: [], lanes: {}, tiers: {}, 
     last: new Set(), wait: new Set(), 
@@ -499,6 +504,7 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   return;
 }
+
     // ✅ 딥롤방연결
     if (commandName === '딥롤방연결') {
       const matchId = options.getString('matchid', true);
