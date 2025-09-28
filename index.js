@@ -591,7 +591,6 @@ if (interaction.isButton()) {
 
   // ✅ 내전참여 → 개인 설정창 열기
   if (customId === 'join_game') {
-    // ✅ 딱 한 번만 deferReply
     await interaction.deferReply({ flags: 64 });
 
     const mainLaneSelect = new StringSelectMenuBuilder()
@@ -636,64 +635,13 @@ if (interaction.isButton()) {
         { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
       );
 
-    // 확인 버튼
-    const confirmButton = new ButtonBuilder()
-      .setCustomId(`confirm_join_${interaction.user.id}`)
-      .setLabel('✅ 확인')
-      .setStyle(ButtonStyle.Success);
-
     return interaction.editReply({
       content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
       components: [
         new ActionRowBuilder().addComponents(mainLaneSelect),
         new ActionRowBuilder().addComponents(subLaneSelect),
-        new ActionRowBuilder().addComponents(tierSelect),
-        new ActionRowBuilder().addComponents(confirmButton) // ✅ 확인 버튼 단독 row
+        new ActionRowBuilder().addComponents(tierSelect)
       ]
-    });
-  }
-
-  // ✅ 확인 버튼 처리
-  if (customId.startsWith('confirm_join_')) {
-    const uid = customId.replace('confirm_join_', '');
-
-    // ✅ 기본 구조 보장
-    if (!state.lanes[uid]) state.lanes[uid] = { main: null, sub: [] };
-    if (!state.tiers[uid]) state.tiers[uid] = null;
-
-    // 🟢 잠깐 defer → select 값 들어올 때까지 대기
-    await interaction.deferReply({ flags: 64 });
-    await new Promise(r => setTimeout(r, 300)); // 0.3초 지연
-
-    // 🟢 최신값 다시 가져오기
-    const mainLane = state.lanes[uid]?.main || null;
-    const subLanes = state.lanes[uid]?.sub || [];
-    const tierVal  = state.tiers[uid] || null;
-
-// 값 없으면 에러 안내 (주/부라인, 티어 모두 필수)
-if (!mainLane || mainLane === 'none' ||
-    !subLanes || subLanes.length === 0 ||
-    !tierVal || tierVal === 'none') {
-  return interaction.editReply({
-    content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
-    flags: 64
-  });
-}
-
-    // 멤버 등록
-    if (!state.members.includes(uid) && !state.wait.has(uid)) {
-      if (state.members.length >= 40) state.wait.add(uid);
-      else state.members.push(uid);
-    }
-
-    state.joinedAt[uid] = Date.now();
-    saveRooms();
-    backupRooms(state);
-    await updateMessage();
-
-    return interaction.editReply({
-      content: `✅ <@${uid}> 님 내전 참여 완료!`,
-      flags: 64
     });
   }
 
@@ -768,6 +716,7 @@ if (!mainLane || mainLane === 'none' ||
   }
 }
 
+
 // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
 // -------------------
@@ -778,9 +727,9 @@ if (interaction.isStringSelectMenu()) {
   const [type, ownerId] = customId.split('_');
   if (ownerId !== user.id) {
     return interaction.reply({
-      content: '❌ 이 메뉴는 당신 전용입니다.',
-      ephemeral: true
-    });
+       content: '⚠️ 내전 방을 찾을 수 없습니다.',
+        flags: 64
+   });
   }
 
   // 현재 채널의 최신 내전 메시지 상태 찾기
@@ -813,6 +762,31 @@ if (interaction.isStringSelectMenu()) {
 
   saveRooms();
   backupRooms(state);
+
+  // ✅ 참여 조건 체크
+  const mainLane = state.lanes[user.id]?.main;
+  const subLanes = state.lanes[user.id]?.sub;
+  const tierVal  = state.tiers[user.id];
+
+  if (mainLane && mainLane !== 'none' &&
+      Array.isArray(subLanes) && subLanes.length > 0 &&
+      tierVal && tierVal !== 'none') {
+    
+    if (!state.members.includes(user.id) && !state.wait.has(user.id)) {
+      if (state.members.length >= 40) state.wait.add(user.id);
+      else state.members.push(user.id);
+    }
+
+    state.joinedAt[user.id] = Date.now();
+    saveRooms();
+    backupRooms(state);
+
+    await recruitMsg.edit({
+      embeds: [renderEmbed(state, state.startTime, state.isAram)]
+    });
+
+    console.log(`✅ ${user.tag} 참여 확정 → 주:${mainLane}, 부:${subLanes.join(',')} 티어:${tierVal}`);
+  }
 
   // ✅ 선택 반영만 하고, UI는 그대로 유지
   await interaction.deferUpdate();
