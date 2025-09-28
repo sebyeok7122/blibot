@@ -633,26 +633,35 @@ if (interaction.isButton()) {
 });
 } // ← 이거 추가해야 함 (join_game if 닫기)
 
-  // ✅ 확인 버튼 처리
-  if (customId.startsWith('confirm_join_')) {
-    const uid = customId.replace('confirm_join_', '');
+// ✅ 확인 버튼 처리
+if (customId.startsWith('confirm_join_')) {
+  const uid = customId.replace('confirm_join_', '');
 
-    if (!state.lanes[uid]?.main || !state.lanes[uid]?.sub?.length || !state.tiers[uid]) {
-      return interaction.reply({ content: '❌ 주/부 라인과 티어를 모두 선택해주세요!', flags: 64 });
-    }
+  // ✅ 기본 구조 보장
+  state.lanes[uid] = state.lanes[uid] || { main: null, sub: [] };
 
-    if (!state.members.includes(uid) && !state.wait.has(uid)) {
-      if (state.members.length >= 40) state.wait.add(uid);
-      else state.members.push(uid);
-    }
-
-    state.joinedAt[uid] = Date.now();
-    saveRooms();
-    backupRooms(state);
-    await updateMessage();
-
-    return interaction.reply({ content: `✅ <@${uid}> 님 내전 참여 완료!`, flags: 64 });
+  if (!state.lanes[uid].main || !state.lanes[uid].sub.length || !state.tiers[uid]) {
+    return interaction.reply({
+      content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
+      ephemeral: true
+    });
   }
+
+  if (!state.members.includes(uid) && !state.wait.has(uid)) {
+    if (state.members.length >= 40) state.wait.add(uid);
+    else state.members.push(uid);
+  }
+
+  state.joinedAt[uid] = Date.now();
+  saveRooms();
+  backupRooms(state);
+  await updateMessage();
+
+  return interaction.reply({
+    content: `✅ <@${uid}> 님 내전 참여 완료!`,
+    ephemeral: true
+  });
+}
 
   // ❎ 내전취소
   if (customId === 'leave_game') {
