@@ -785,18 +785,19 @@ if (interaction.isButton()) {
        .setLabel('✅ 확인')
        .setStyle(ButtonStyle.Success);
 
-      return interaction.editReply({
-      content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
-      components: [
-       new ActionRowBuilder().addComponents(mainLaneSelect),
-       new ActionRowBuilder().addComponents(subLaneSelect),
-       new ActionRowBuilder().addComponents(tierSelect),
-       new ActionRowBuilder().addComponents(confirmButton) // ✅ 추가!
-  ],
-  ephemeral: true
-});
+    // 먼저 에페메럴로 응답 예약
+    await interaction.deferReply({ ephemeral: true });
 
-  }
+    // 그다음 수정으로 컴포넌트 세팅
+    return interaction.editReply({
+    content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
+    components: [
+    new ActionRowBuilder().addComponents(mainLaneSelect),
+    new ActionRowBuilder().addComponents(subLaneSelect),
+    new ActionRowBuilder().addComponents(tierSelect),
+    new ActionRowBuilder().addComponents(confirmButton) // ✅ 확인 버튼 단독 row
+  ]
+});
 
   // ✅ 확인 버튼 처리
   if (customId.startsWith('confirm_join_')) {
