@@ -658,14 +658,14 @@ if (interaction.isButton()) {
 if (customId.startsWith('confirm_join_')) {
   const uid = customId.replace('confirm_join_', '');
 
-  // ✅ 기본 구조 보장
+  // 기본 구조 보장
   state.lanes[uid] = state.lanes[uid] || { main: null, sub: [] };
   state.tiers[uid] = state.tiers[uid] || null;
 
-  // ✅ 안전망: 값이 비어 있으면 기본값 강제
-  if (!state.lanes[uid].main) state.lanes[uid].main = 'none';
-  if (!state.lanes[uid].sub) state.lanes[uid].sub = [];
-  if (!state.tiers[uid]) state.tiers[uid] = 'none';
+  // ✅ 확인 시점에서 선택이 안 저장되어 있으면 기본값 강제
+  if (!state.lanes[uid].main) state.lanes[uid].main = 'top';   // 기본값: 탑
+  if (!state.lanes[uid].sub?.length) state.lanes[uid].sub = ['none'];
+  if (!state.tiers[uid]) state.tiers[uid] = 'I';              // 기본값: 아이언
 
   // 검사
   if (state.lanes[uid].main === 'none' || !state.lanes[uid].sub.length || state.tiers[uid] === 'none') {
@@ -675,6 +675,7 @@ if (customId.startsWith('confirm_join_')) {
     });
   }
 
+  // 저장 + 메시지 업데이트
   if (!state.members.includes(uid) && !state.wait.has(uid)) {
     if (state.members.length >= 40) state.wait.add(uid);
     else state.members.push(uid);
@@ -690,7 +691,6 @@ if (customId.startsWith('confirm_join_')) {
     ephemeral: true
   });
 }
-
   // ❎ 내전취소
   if (customId === 'leave_game') {
     const wasMember = state.members.includes(user.id);
