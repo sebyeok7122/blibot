@@ -773,8 +773,9 @@ if (interaction.isStringSelectMenu()) {
 
   // ✅ 선택 반영만 하고, UI는 그대로 유지
   await interaction.deferUpdate();
-}    // ← if 블록 닫기
+} // ← if 블록 닫기
 
-});// ← 여기서 이벤트 핸들러 전체 닫기
+}); // ← 이벤트 핸들러 전체 닫기
+
 // 로그인
 client.login(token);
