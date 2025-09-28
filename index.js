@@ -766,7 +766,7 @@ if (interaction.isButton()) {
   }
 }
 
-  // -------------------
+// -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
 // -------------------
 if (interaction.isStringSelectMenu()) {
@@ -777,7 +777,7 @@ if (interaction.isStringSelectMenu()) {
   if (ownerId !== user.id) {
     return interaction.reply({
       content: '❌ 이 메뉴는 당신 전용입니다.',
-      ephemeral: true
+      flags: 64 // ✅ deprecated ephemeral 옵션 대신 flags 사용
     });
   }
 
@@ -789,7 +789,7 @@ if (interaction.isStringSelectMenu()) {
   if (!recruitMsg) {
     return interaction.reply({
       content: '⚠️ 내전 방을 찾을 수 없습니다.',
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -797,13 +797,13 @@ if (interaction.isStringSelectMenu()) {
   const state = roomState.get(key);
 
   // 기본 구조 보장
-  state.lanes[user.id] = state.lanes[user.id] || { main: null, sub: [] };
+  if (!state.lanes[user.id]) state.lanes[user.id] = { main: null, sub: [] };
 
+  // 선택 값 저장
   if (type === 'lane') {
     state.lanes[user.id].main = values[0];
   } else if (type === 'sublane') {
-    // 'none' 선택 시 빈 배열
-    state.lanes[user.id].sub = values[0] === 'none' ? [] : values;
+    state.lanes[user.id].sub = values.includes('none') ? [] : values;
   } else if (type === 'tier') {
     state.tiers[user.id] = values[0];
   }
