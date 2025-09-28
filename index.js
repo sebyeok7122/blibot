@@ -658,24 +658,17 @@ if (interaction.isButton()) {
 if (customId.startsWith('confirm_join_')) {
   const uid = customId.replace('confirm_join_', '');
 
-  // 기본 구조 보장
+  // ✅ 기본 구조 보장
   state.lanes[uid] = state.lanes[uid] || { main: null, sub: [] };
   state.tiers[uid] = state.tiers[uid] || null;
 
-  // ✅ 확인 시점에서 선택이 안 저장되어 있으면 기본값 강제
-  if (!state.lanes[uid].main) state.lanes[uid].main = 'top';   // 기본값: 탑
-  if (!state.lanes[uid].sub?.length) state.lanes[uid].sub = ['none'];
-  if (!state.tiers[uid]) state.tiers[uid] = 'I';              // 기본값: 아이언
-
-  // 검사
-  if (state.lanes[uid].main === 'none' || !state.lanes[uid].sub.length || state.tiers[uid] === 'none') {
+  if (!state.lanes[uid].main || !state.lanes[uid].sub.length || !state.tiers[uid]) {
     return interaction.reply({
       content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
       ephemeral: true
     });
   }
 
-  // 저장 + 메시지 업데이트
   if (!state.members.includes(uid) && !state.wait.has(uid)) {
     if (state.members.length >= 40) state.wait.add(uid);
     else state.members.push(uid);
@@ -684,13 +677,18 @@ if (customId.startsWith('confirm_join_')) {
   state.joinedAt[uid] = Date.now();
   saveRooms();
   backupRooms(state);
+
+  // ✅ 버튼 응답은 update로 마무리
+  await interaction.deferUpdate();
   await updateMessage();
 
-  return interaction.reply({
+  // ✅ 추가 메시지는 followUp으로
+  await interaction.followUp({
     content: `✅ <@${uid}> 님 내전 참여 완료!`,
     ephemeral: true
   });
 }
+
   // ❎ 내전취소
   if (customId === 'leave_game') {
     const wasMember = state.members.includes(user.id);
