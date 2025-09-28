@@ -483,7 +483,7 @@ if (commandName === '내전' || commandName === '칼바람내전') {
 
   const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
-  // ✅ ACK 먼저 보내고, 메시지는 새로 보내기
+  // ✅ 상호작용 ACK 먼저 → followUp으로 새 메시지 전송
   await interaction.deferReply();
   const replyMsg = await interaction.followUp({
     embeds: [renderEmbed(
