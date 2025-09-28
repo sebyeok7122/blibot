@@ -712,10 +712,10 @@ return;  // ⬅️ 여기 넣어주면 됨
       backupRooms(state);
       return updateMessage();
     }
-
 }
+
 // -------------------
-// 2) 버튼 핸들러
+// 2) 버튼 핸들러 (승급 + 막판 로그 포함 완성본)
 // -------------------
 if (interaction.isButton()) {
   const { customId, user, message } = interaction;
@@ -735,9 +735,8 @@ if (interaction.isButton()) {
 
   // ✅ 내전참여 → 개인 설정창 열기
   if (customId === 'join_game') {
-    await interaction.deferReply({ flags: 64 }); // ephemeral 대체
+    await interaction.deferReply({ flags: 64 });
 
-    // 주 라인 선택
     const mainLaneSelect = new StringSelectMenuBuilder()
       .setCustomId(`lane_${user.id}`)
       .setPlaceholder('주라인 선택')
@@ -749,7 +748,6 @@ if (interaction.isButton()) {
         { label: '서폿', value: 'support', default: state.lanes[user.id]?.main === 'support' }
       );
 
-    // 부 라인 선택
     const subLaneSelect = new StringSelectMenuBuilder()
       .setCustomId(`sublane_${user.id}`)
       .setPlaceholder('부라인 선택 (여러 개 가능)')
@@ -764,7 +762,6 @@ if (interaction.isButton()) {
         { label: '서폿', value: 'support', default: state.lanes[user.id]?.sub?.includes('support') }
       );
 
-    // 티어 선택
     const tierSelect = new StringSelectMenuBuilder()
       .setCustomId(`tier_${user.id}`)
       .setPlaceholder('티어 선택')
@@ -782,7 +779,6 @@ if (interaction.isButton()) {
         { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
       );
 
-    // 확인 버튼
     const confirmButton = new ButtonBuilder()
       .setCustomId(`confirm_join_${user.id}`)
       .setLabel('✅ 확인')
@@ -803,7 +799,6 @@ if (interaction.isButton()) {
   if (customId.startsWith('confirm_join_')) {
     const uid = customId.replace('confirm_join_', '');
 
-    // 주/부 라인 & 티어 확인
     if (!state.lanes[uid]?.main || !state.lanes[uid]?.sub?.length || !state.tiers[uid]) {
       return interaction.reply({ content: '❌ 주/부 라인과 티어를 모두 선택해주세요!', flags: 64 });
     }
@@ -821,42 +816,19 @@ if (interaction.isButton()) {
     return interaction.reply({ content: `✅ <@${uid}> 님 내전 참여 완료!`, flags: 64 });
   }
 
-
-   // ❎ 내전취소
-    if (customId === 'leave_game') {
-      const wasMember = state.members.includes(user.id);
-      state.members = state.members.filter(m => m !== user.id);
-      state.wait.delete(user.id);
-      state.last.delete(user.id);
-
-      // 빈자리 생겼고 대기자가 있다면 1명 승급
-      if (wasMember && state.wait.size > 0) {
-        const next = state.wait.values().next().value;
-        state.wait.delete(next);
-        state.members.push(next);
-      }
-
-      saveRooms();
-      backupRooms(state);
-      return updateMessage();
-    }
-
-   // ⛔ 내전막판
-if (customId === 'last_call') {
-  const wasMember = state.members.includes(user.id);
-
-  if (wasMember) {
-    // 참여자 → 막판 이동
-    state.last.add(user.id);
+  // ❎ 내전취소
+  if (customId === 'leave_game') {
+    const wasMember = state.members.includes(user.id);
     state.members = state.members.filter(m => m !== user.id);
+    state.wait.delete(user.id);
+    state.last.delete(user.id);
 
-    // 빈자리만큼 대기자에서 승급
-    if (state.wait.size > 0) {
+    if (wasMember && state.wait.size > 0) {
       const next = state.wait.values().next().value;
       state.wait.delete(next);
       state.members.push(next);
 
-      // ✅ 승급 로그 찍기
+      // ✅ 승급 로그
       const mainLane = state.lanes[next]?.main || '없음';
       const subLane  = state.lanes[next]?.sub  || '없음';
       const tier     = state.tiers[next]       || '없음';
@@ -868,19 +840,52 @@ if (customId === 'last_call') {
         console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
       }
     }
-    // ✅ 막판 로그
-    try {
-      const member = await interaction.guild.members.fetch(user.id);
-      console.log(`⛔ 내전막판: ${member.displayName} (${member.user.tag})`);
-    } catch (err) {
-      console.log(`⛔ 내전막판: <@${user.id}> (닉네임 불러오기 실패)`);
-    }
 
     saveRooms();
     backupRooms(state);
     return updateMessage();
-  } 
-}  
+  }
+
+  // ⛔ 내전막판
+  if (customId === 'last_call') {
+    const wasMember = state.members.includes(user.id);
+
+    if (wasMember) {
+      state.last.add(user.id);
+      state.members = state.members.filter(m => m !== user.id);
+
+      if (state.wait.size > 0) {
+        const next = state.wait.values().next().value;
+        state.wait.delete(next);
+        state.members.push(next);
+
+        // ✅ 승급 로그
+        const mainLane = state.lanes[next]?.main || '없음';
+        const subLane  = state.lanes[next]?.sub  || '없음';
+        const tier     = state.tiers[next]       || '없음';
+
+        try {
+          const promoted = await interaction.guild.members.fetch(next);
+          console.log(`🔼 대기자 승급: ${promoted.displayName} (${promoted.user.tag}) → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
+        } catch (err) {
+          console.log(`🔼 대기자 승급: <@${next}> → 주:${mainLane}, 부:${subLane}, 티어:${tier}`);
+        }
+      }
+
+      // ✅ 막판 로그
+      try {
+        const member = await interaction.guild.members.fetch(user.id);
+        console.log(`⛔ 내전막판: ${member.displayName} (${member.user.tag})`);
+      } catch (err) {
+        console.log(`⛔ 내전막판: <@${user.id}> (닉네임 불러오기 실패)`);
+      }
+
+      saveRooms();
+      backupRooms(state);
+      return updateMessage();
+    }
+  }
+}
 
   // -------------------
 // 3) 선택 메뉴 핸들러 (ephemeral 개인 메뉴)
