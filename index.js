@@ -381,36 +381,97 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // -------------------
-  // 2) 버튼 핸들러
-  // -------------------
-  if (interaction.isButton()) {
-    const { customId, user, message } = interaction;
-    const key = message.id;
-    if (!roomState.has(key)) roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} });
-    const state = roomState.get(key);
+// -------------------
+// 2) 버튼 핸들러
+// -------------------
+if (interaction.isButton()) {
+  const { customId, user, message } = interaction;
+  const key = message.id;
+  if (!roomState.has(key))
+    roomState.set(key, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} });
+  const state = roomState.get(key);
 
-    const updateMessage = () => message.edit({ embeds: [renderEmbed(state, state.startTime, state.isAram)], components: message.components });
+  const updateMessage = () =>
+    message.edit({
+      embeds: [renderEmbed(state, state.startTime, state.isAram)],
+      components: message.components,
+    });
 
-    if (customId === 'leave_game') {
-      state.members = state.members.filter(m => m !== user.id);
-      state.wait.delete(user.id);
-      state.last.delete(user.id);
+  // ✅ 내전참여 (개인 설정창 열기)
+  if (customId === 'join_game') {
+    const mainLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId(`lane_${user.id}`)
+      .setPlaceholder('주라인 선택')
+      .addOptions(
+        { label: '탑', value: 'top', default: state.lanes[user.id]?.main === 'top' },
+        { label: '정글', value: 'jungle', default: state.lanes[user.id]?.main === 'jungle' },
+        { label: '미드', value: 'mid', default: state.lanes[user.id]?.main === 'mid' },
+        { label: '원딜', value: 'adc', default: state.lanes[user.id]?.main === 'adc' },
+        { label: '서폿', value: 'support', default: state.lanes[user.id]?.main === 'support' }
+      );
+
+    const subLaneSelect = new StringSelectMenuBuilder()
+      .setCustomId(`sublane_${user.id}`)
+      .setPlaceholder('부라인 선택 (여러 개 가능)')
+      .setMinValues(1)
+      .setMaxValues(5)
+      .addOptions(
+        { label: '없음', value: 'none', default: (state.lanes[user.id]?.sub?.length ?? 0) === 0 },
+        { label: '탑', value: 'top', default: state.lanes[user.id]?.sub?.includes('top') },
+        { label: '정글', value: 'jungle', default: state.lanes[user.id]?.sub?.includes('jungle') },
+        { label: '미드', value: 'mid', default: state.lanes[user.id]?.sub?.includes('mid') },
+        { label: '원딜', value: 'adc', default: state.lanes[user.id]?.sub?.includes('adc') },
+        { label: '서폿', value: 'support', default: state.lanes[user.id]?.sub?.includes('support') }
+      );
+
+    const tierSelect = new StringSelectMenuBuilder()
+      .setCustomId(`tier_${user.id}`)
+      .setPlaceholder('티어 선택')
+      .addOptions(
+        { label: '아이언', value: 'I', default: state.tiers[user.id] === 'I' },
+        { label: '브론즈', value: 'B', default: state.tiers[user.id] === 'B' },
+        { label: '실버', value: 'S', default: state.tiers[user.id] === 'S' },
+        { label: '골드', value: 'G', default: state.tiers[user.id] === 'G' },
+        { label: '플래티넘', value: 'P', default: state.tiers[user.id] === 'P' },
+        { label: '에메랄드', value: 'E', default: state.tiers[user.id] === 'E' },
+        { label: '다이아', value: 'D', default: state.tiers[user.id] === 'D' },
+        { label: '마스터', value: 'M', default: state.tiers[user.id] === 'M' },
+        { label: '그마', value: 'GM', default: state.tiers[user.id] === 'GM' },
+        { label: '챌린저', value: 'C', default: state.tiers[user.id] === 'C' },
+        { label: '14~15최고티어', value: 'T1415', default: state.tiers[user.id] === 'T1415' }
+      );
+
+    await interaction.reply({
+      content: '🥨 개인 내전 설정창입니다. 선택한 내용은 다른 사람에게 보이지 않습니다. 🥨',
+      ephemeral: true,
+      components: [
+        new ActionRowBuilder().addComponents(mainLaneSelect),
+        new ActionRowBuilder().addComponents(subLaneSelect),
+        new ActionRowBuilder().addComponents(tierSelect),
+      ],
+    });
+    return;
+  }
+
+  if (customId === 'leave_game') {
+    state.members = state.members.filter((m) => m !== user.id);
+    state.wait.delete(user.id);
+    state.last.delete(user.id);
+    saveRooms();
+    backupRooms(state);
+    return updateMessage();
+  }
+
+  if (customId === 'last_call') {
+    if (state.members.includes(user.id)) {
+      state.last.add(user.id);
+      state.members = state.members.filter((m) => m !== user.id);
       saveRooms();
       backupRooms(state);
       return updateMessage();
     }
-
-    if (customId === 'last_call') {
-      if (state.members.includes(user.id)) {
-        state.last.add(user.id);
-        state.members = state.members.filter(m => m !== user.id);
-        saveRooms();
-        backupRooms(state);
-        return updateMessage();
-      }
-    }
   }
+}
 
   // -------------------
   // 3) 선택 메뉴 핸들러 (확인 버튼 없이 즉시 반영)
