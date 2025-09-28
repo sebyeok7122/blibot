@@ -87,6 +87,27 @@ async function writeJSONSafe(file, obj) {
   await fsP.writeFile(tmp, JSON.stringify(obj, null, 2), 'utf8');
   await fsP.rename(tmp, file);
 }
+// ✅ accounts.json 유틸
+function loadAccounts() {
+  if (fs.existsSync(accountPath)) {
+    try {
+      const raw = fs.readFileSync(accountPath, 'utf8');
+      return JSON.parse(raw || '{}');
+    } catch (e) {
+      console.error("❌ accounts.json 파싱 오류:", e);
+      return {};
+    }
+  }
+  return {};
+}
+
+function saveAccounts(accounts) {
+  try {
+    fs.writeFileSync(accountPath, JSON.stringify(accounts, null, 2), 'utf8');
+  } catch (e) {
+    console.error("❌ accounts.json 저장 오류:", e);
+  }
+}
 
 // ✅ roomState 저장/복원
 const roomState = new Map();
@@ -440,38 +461,38 @@ if (interaction.isChatInputCommand()) {
       }
     }
 
-    // ✅ 내전 / 칼바람내전
-    if (commandName === '내전' || commandName === '칼바람내전') {
-      const allowedRoles = ['689438958140260361', '1415895023102197830'];
-      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '🤍 내전 모집은 관리자/도우미 문의', ephemeral: true });
-      }
+// ✅ 내전 / 칼바람내전
+if (commandName === '내전' || commandName === '칼바람내전') {
+  const allowedRoles = ['689438958140260361', '1415895023102197830'];
+  if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+    return interaction.reply({ content: '🤍 내전 모집은 관리자/도우미 문의', ephemeral: true });
+  }
 
-      const startTime = options.getString('시간');
-      const isAram = commandName === '칼바람내전';
+  const startTime = options.getString('시간');
+  const isAram = commandName === '칼바람내전';
 
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
-      const lastBtn = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
+  const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
+  const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
+  const lastBtn = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
 
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
+  const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
 
-      const replyMsg = await interaction.reply({
-        embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
-        components: [row],
-        fetchReply: true
-      });
+  // ⚠️ fetchReply 제거, 대신 fetchReply() 따로 호출
+  await interaction.reply({
+    embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
+    components: [row]
+  });
+  const replyMsg = await interaction.fetchReply();
 
-roomState.set(replyMsg.id, { 
-  members: [], lanes: {}, tiers: {}, 
-  last: new Set(), wait: new Set(), 
-  startTime, isAram, joinedAt: {} 
-});
-saveRooms();
+  roomState.set(replyMsg.id, { 
+    members: [], lanes: {}, tiers: {}, 
+    last: new Set(), wait: new Set(), 
+    startTime, isAram, joinedAt: {} 
+  });
+  saveRooms();
 
-return;  // ⬅️ 여기 넣어주면 됨
-}        // ⬅️ 그리고 이건 블록 닫기 괄호 (그대로 유지)
-
+  return;
+}
     // ✅ 딥롤방연결
     if (commandName === '딥롤방연결') {
       const matchId = options.getString('matchid', true);
@@ -639,8 +660,15 @@ if (customId.startsWith('confirm_join_')) {
 
   // ✅ 기본 구조 보장
   state.lanes[uid] = state.lanes[uid] || { main: null, sub: [] };
+  state.tiers[uid] = state.tiers[uid] || null;
 
-  if (!state.lanes[uid].main || !state.lanes[uid].sub.length || !state.tiers[uid]) {
+  // ✅ 안전망: 값이 비어 있으면 기본값 강제
+  if (!state.lanes[uid].main) state.lanes[uid].main = 'none';
+  if (!state.lanes[uid].sub) state.lanes[uid].sub = [];
+  if (!state.tiers[uid]) state.tiers[uid] = 'none';
+
+  // 검사
+  if (state.lanes[uid].main === 'none' || !state.lanes[uid].sub.length || state.tiers[uid] === 'none') {
     return interaction.reply({
       content: '❌ 주/부 라인과 티어를 모두 선택해주세요!',
       ephemeral: true
