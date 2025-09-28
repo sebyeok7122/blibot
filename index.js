@@ -569,8 +569,9 @@ if (interaction.isButton()) {
     });
 
   // ✅ 내전참여 → 개인 설정창 열기
-  if (customId === 'join_game') {
-    await interaction.deferReply({ flags: 64 });
+     if (customId === 'join_game') {
+      // ✅ 딱 한 번만 deferReply
+     await interaction.deferReply({ ephemeral: true });
 
     const mainLaneSelect = new StringSelectMenuBuilder()
       .setCustomId(`lane_${user.id}`)
@@ -619,9 +620,6 @@ if (interaction.isButton()) {
        .setCustomId(`confirm_join_${interaction.user.id}`)
        .setLabel('✅ 확인')
        .setStyle(ButtonStyle.Success);
-
-    // 먼저 에페메럴로 응답 예약
-    await interaction.deferReply({ ephemeral: true });
 
     // 그다음 수정으로 컴포넌트 세팅
     return interaction.editReply({
