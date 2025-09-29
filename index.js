@@ -445,10 +445,8 @@ if (commandName === '계정등록') {
       roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
       saveRooms();
       return;
-    }
   }
 }
-
 // -------------------
 // 2) 버튼 핸들러
 // -------------------
