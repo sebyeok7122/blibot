@@ -290,160 +290,178 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 client.on('interactionCreate', async (interaction) => {
   
-// ✅ 계정등록 (강화 버전)
-if (commandName === '계정등록') {
-  const userId = interaction.user.id;
-  const riotKey = process.env.RIOT_API_KEY;
+// -------------------
+// 1) 슬래시 명령어 처리
+// -------------------
+if (interaction.isChatInputCommand()) {
+  const { commandName, options, user } = interaction;
+  const uid = user.id;
 
-  // 옵션명 예외 대응 (등록명이 영어일 수 있음)
-  const rawInput =
-    options.getString('라이엇닉네임') ??
-    options.getString('riotnick') ??
-    options.getString('riot_id');
+  // -------------------
+  // 1) 계정등록 (강화 버전)
+  // -------------------
+  if (commandName === '계정등록') {
+    const riotKey = process.env.RIOT_API_KEY;
 
-  // ▶ 파서: 다양한 입력을 정상화
-  function parseRiotId(input) {
-    if (!input) return { error: "❌ 닉네임을 입력해주세요. (예: 새벽#반딧불이 또는 새벽#KR1)" };
+    // 옵션명 예외 대응 (등록명이 영어일 수 있음)
+    const rawInput =
+      options.getString('라이엇닉네임') ??
+      options.getString('riotnick') ??
+      options.getString('riot_id');
 
-    // 제로폭/전각해시/여러 공백 정리
-    let s = String(input)
-      .replace(/\u200B/g, '')         // zero-width 제거
-      .replace(/＃/g, '#')            // 전각 → 반각
-      .replace(/[\s\u00A0]+/g, ' ')   // 공백 정규화
-      .trim();
+    // ▶ 파서: 다양한 입력을 정상화
+    function parseRiotId(input) {
+      if (!input) return { error: "❌ 닉네임을 입력해주세요. (예: 새벽#반딧불이 또는 새벽#KR1)" };
 
-    // -, @ 를 # 로 허용
-    s = s.replace(/[@\-]/g, '#');
+      // 제로폭/전각해시/여러 공백 정리
+      let s = String(input)
+        .replace(/\u200B/g, '')         // zero-width 제거
+        .replace(/＃/g, '#')            // 전각 → 반각
+        .replace(/[\s\u00A0]+/g, ' ')   // 공백 정규화
+        .trim();
 
-    // # 없으면 끝 토큰이 2~5자 영숫자면 태그로 간주
-    if (!s.includes('#')) {
-      const m = s.match(/^(.*?)[\s_]*([a-zA-Z0-9]{2,5})$/);
-      if (m) s = `${m[1].trim()}#${m[2]}`;
-    }
+      // -, @ 를 # 로 허용
+      s = s.replace(/[@\-]/g, '#');
 
-    const idx = s.indexOf('#');
-    if (idx === -1) return { error: "❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#반딧불이 또는 새벽#KR1)" };
-
-    const gameName = s.slice(0, idx).trim();
-    const tagLine  = s.slice(idx + 1).trim();
-
-    // ✅ 최소 길이를 2로 완화 (한글 닉네임 2글자 대응)
-    if (gameName.length < 2 || gameName.length > 16)
-      return { error: `❌ 소환사명은 2~16자여야 합니다. (입력된 길이: ${gameName.length})` };
-
-    // 허용 문자(한글/영문/숫자/기본 구두점)
-    if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(gameName))
-      return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
-
-    // ✅ 태그: 한글/영문/숫자 허용 (2~5자)
-    if (!/^[\p{L}\p{N}]{2,5}$/u.test(tagLine)) {
-      return { error: "❌ 태그는 2~5자의 한글/영문/숫자여야 합니다." };
-    }
-
-    return { gameName, tagLine };
-  } // ← 함수 닫는 중괄호 추가!!!
-
-  const parsed = parseRiotId(rawInput);
-  if (parsed.error) {
-    return interaction.reply({ content: parsed.error, ephemeral: true });
-  }
-
-  // 이름 겹침 방지 → parsedGameName / parsedTagLine 으로 사용
-  const { gameName: parsedGameName, tagLine: parsedTagLine } = parsed;
-
-  // 디버그 로그
-  console.log(`[계정등록] raw="${rawInput}" -> gameName="${parsedGameName}", tagLine="${parsedTagLine}"`);
-
-  try {
-    const url = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(parsedGameName)}/${encodeURIComponent(parsedTagLine)}`;
-    const response = await fetch(url, { headers: { 'X-Riot-Token': riotKey } });
-
-    if (response.status === 404) {
-      return interaction.reply({ content: "❌ 존재하지 않는 라이엇 계정입니다.", ephemeral: true });
-    }
-    if (!response.ok) {
-      return interaction.reply({ content: `❌ Riot API 오류: ${response.status}`, ephemeral: true });
-    }
-
-    const data = await response.json();
-    const officialName = `${data.gameName}#${data.tagLine}`;
-
-    let accounts = loadAccounts();
-    if (!accounts[userId]) {
-      accounts[userId] = {
-        riotName: officialName,
-        puuid: data.puuid,
-        mmr: 1000,
-        wins: 0,
-        losses: 0,
-        streak: 0,
-        gamesPlayed: 0,
-        userTag: interaction.user.tag,
-        type: "main"
-      };
-      saveAccounts(accounts);
-      return interaction.reply({ content: `✅ <@${userId}> 메인 계정이 **${officialName}** 으로 등록되었습니다!`, ephemeral: true });
-    } else {
-      return interaction.reply({ content: `⚠️ 이미 등록된 계정: **${accounts[userId].riotName}**`, ephemeral: true });
-    }
-  } catch (err) {
-    console.error("계정등록 오류:", err);
-    return interaction.reply({ content: "❌ 계정 등록 중 오류가 발생했습니다.", ephemeral: true });
-  }
-}
-
-    // ✅ 계정삭제
-    if (commandName === '계정삭제') {
-      let accounts = loadAccounts();
-      if (accounts[userId]) {
-        delete accounts[userId];
-        saveAccounts(accounts);
-        return interaction.reply(`🗑️ 계정 삭제 완료`);
-      } else return interaction.reply(`❌ 등록된 계정이 없습니다.`);
-    }
-
-    // ✅ 부캐등록
-    if (commandName === '부캐등록') {
-      const subNick = options.getString('부캐닉네임');
-      const mainNick = options.getString('메인닉네임');
-      let accounts = loadAccounts();
-      if (!accounts[userId]) return interaction.reply(`❌ 먼저 /계정등록 하세요.`);
-      if (accounts[userId].riotName !== mainNick) return interaction.reply(`⚠️ 메인 닉네임이 다릅니다.`);
-      if (!accounts[userId].alts) accounts[userId].alts = [];
-      if (!accounts[userId].alts.includes(subNick)) {
-        accounts[userId].alts.push(subNick);
-        saveAccounts(accounts);
-        return interaction.reply(`✅ 부캐 **${subNick}** 연결 완료!`);
-      } else return interaction.reply(`⚠️ 이미 등록된 부캐`);
-    }
-
-    // ✅ 내전/칼바람 내전 모집
-    if (commandName === '내전' || commandName === '칼바람내전') {
-      const allowedRoles = ['689438958140260361', '1415895023102197830'];
-      if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
-        return interaction.reply({ content: '🤍 내전 모집은 관리자/도우미 문의', ephemeral: true });
+      // # 없으면 끝 토큰이 2~5자 영숫자면 태그로 간주
+      if (!s.includes('#')) {
+        const m = s.match(/^(.*?)[\s_]*([a-zA-Z0-9]{2,5})$/);
+        if (m) s = `${m[1].trim()}#${m[2]}`;
       }
 
-      const startTime = options.getString('시간');
-      const isAram = commandName === '칼바람내전';
+      const idx = s.indexOf('#');
+      if (idx === -1) return { error: "❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#반딧불이 또는 새벽#KR1)" };
 
-      const joinBtn = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
-      const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
-      const lastBtn = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
+      const gameName = s.slice(0, idx).trim();
+      const tagLine  = s.slice(idx + 1).trim();
 
-      const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
+      // ✅ 최소 길이를 2로 완화 (한글 닉네임 2글자 대응)
+      if (gameName.length < 2 || gameName.length > 16)
+        return { error: `❌ 소환사명은 2~16자여야 합니다. (입력된 길이: ${gameName.length})` };
 
-      await interaction.deferReply();
-      const replyMsg = await interaction.followUp({
-        embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
-        components: [row]
-      });
+      // 허용 문자(한글/영문/숫자/기본 구두점)
+      if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(gameName))
+        return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
 
-      roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
-      saveRooms();
-      return;
+      // ✅ 태그: 한글/영문/숫자 허용 (2~5자)
+      if (!/^[\p{L}\p{N}]{2,5}$/u.test(tagLine)) {
+        return { error: "❌ 태그는 2~5자의 한글/영문/숫자여야 합니다." };
+      }
+
+      return { gameName, tagLine };
+    } // ← 함수 닫기
+
+    const parsed = parseRiotId(rawInput);
+    if (parsed.error) {
+      return interaction.reply({ content: parsed.error, ephemeral: true });
+    }
+
+    const { gameName: parsedGameName, tagLine: parsedTagLine } = parsed;
+
+    // 디버그 로그
+    console.log(`[계정등록] raw="${rawInput}" -> gameName="${parsedGameName}", tagLine="${parsedTagLine}"`);
+
+    try {
+      const url = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(parsedGameName)}/${encodeURIComponent(parsedTagLine)}`;
+      const response = await fetch(url, { headers: { 'X-Riot-Token': riotKey } });
+
+      if (response.status === 404) {
+        return interaction.reply({ content: "❌ 존재하지 않는 라이엇 계정입니다.", ephemeral: true });
+      }
+      if (!response.ok) {
+        return interaction.reply({ content: `❌ Riot API 오류: ${response.status}`, ephemeral: true });
+      }
+
+      const data = await response.json();
+      const officialName = `${data.gameName}#${data.tagLine}`;
+
+      let accounts = loadAccounts();
+      if (!accounts[uid]) {
+        accounts[uid] = {
+          riotName: officialName,
+          puuid: data.puuid,
+          mmr: 1000,
+          wins: 0,
+          losses: 0,
+          streak: 0,
+          gamesPlayed: 0,
+          userTag: interaction.user.tag,
+          type: "main"
+        };
+        saveAccounts(accounts);
+        return interaction.reply({ content: `✅ <@${uid}> 메인 계정이 **${officialName}** 으로 등록되었습니다!`, ephemeral: true });
+      } else {
+        return interaction.reply({ content: `⚠️ 이미 등록된 계정: **${accounts[uid].riotName}**`, ephemeral: true });
+      }
+    } catch (err) {
+      console.error("계정등록 오류:", err);
+      return interaction.reply({ content: "❌ 계정 등록 중 오류가 발생했습니다.", ephemeral: true });
+    }
   }
-}
+
+  // -------------------
+  // 2) 계정삭제
+  // -------------------
+  if (commandName === '계정삭제') {
+    let accounts = loadAccounts();
+    if (accounts[uid]) {
+      delete accounts[uid];
+      saveAccounts(accounts);
+      return interaction.reply({ content: '🗑️ 계정 삭제 완료' });
+    } else {
+      return interaction.reply({ content: '❌ 등록된 계정이 없습니다.' });
+    }
+  }
+
+  // -------------------
+  // 3) 부캐등록
+  // -------------------
+  if (commandName === '부캐등록') {
+    const subNick = options.getString('부캐닉네임');
+    const mainNick = options.getString('메인닉네임');
+    let accounts = loadAccounts();
+    if (!accounts[uid]) return interaction.reply({ content: '❌ 먼저 /계정등록 하세요.' });
+    if (accounts[uid].riotName !== mainNick) return interaction.reply({ content: '⚠️ 메인 닉네임이 다릅니다.' });
+    if (!accounts[uid].alts) accounts[uid].alts = [];
+    if (!accounts[uid].alts.includes(subNick)) {
+      accounts[uid].alts.push(subNick);
+      saveAccounts(accounts);
+      return interaction.reply({ content: `✅ 부캐 **${subNick}** 연결 완료!` });
+    } else {
+      return interaction.reply({ content: '⚠️ 이미 등록된 부캐' });
+    }
+  }
+
+  // -------------------
+  // 4) 내전 / 칼바람내전 모집
+  // -------------------
+  if (commandName === '내전' || commandName === '칼바람내전') {
+    const allowedRoles = ['689438958140260361', '1415895023102197830'];
+    if (!interaction.member.roles.cache.some(r => allowedRoles.includes(r.id))) {
+      return interaction.reply({ content: '🤍 내전 모집은 관리자/도우미 문의', ephemeral: true });
+    }
+
+    const startTime = options.getString('시간');
+    const isAram = commandName === '칼바람내전';
+
+    const joinBtn  = new ButtonBuilder().setCustomId('join_game').setLabel('✅ 내전참여').setStyle(ButtonStyle.Success);
+    const leaveBtn = new ButtonBuilder().setCustomId('leave_game').setLabel('❎ 내전취소').setStyle(ButtonStyle.Danger);
+    const lastBtn  = new ButtonBuilder().setCustomId('last_call').setLabel('⛔ 내전막판').setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(joinBtn, leaveBtn, lastBtn);
+
+    await interaction.deferReply();
+    const replyMsg = await interaction.followUp({
+      embeds: [renderEmbed({ members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), joinedAt: {} }, startTime, isAram)],
+      components: [row]
+    });
+
+    roomState.set(replyMsg.id, { members: [], lanes: {}, tiers: {}, last: new Set(), wait: new Set(), startTime, isAram, joinedAt: {} });
+    saveRooms();
+    return;
+  }
+} // ← ★ isChatInputCommand 닫기: 마지막은 이거 하나면 끝!
+
 // -------------------
 // 2) 버튼 핸들러
 // -------------------
