@@ -290,13 +290,6 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 client.on('interactionCreate', async (interaction) => {
   
-// -------------------
-  // 1) 슬래시 명령어 처리
-  // -------------------
-  if (interaction.isChatInputCommand()) {
-    const { commandName, options, user } = interaction;
-    const userId = user.id;
-
 // ✅ 계정등록 (강화 버전)
 if (commandName === '계정등록') {
   const userId = interaction.user.id;
@@ -332,7 +325,7 @@ if (commandName === '계정등록') {
     if (idx === -1) return { error: "❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#반딧불이 또는 새벽#KR1)" };
 
     const gameName = s.slice(0, idx).trim();
-    const tagLine  = s.slice(idx + 1).trim().toUpperCase();
+    const tagLine  = s.slice(idx + 1).trim();
 
     // ✅ 최소 길이를 2로 완화 (한글 닉네임 2글자 대응)
     if (gameName.length < 2 || gameName.length > 16)
@@ -342,22 +335,27 @@ if (commandName === '계정등록') {
     if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(gameName))
       return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
 
-  // 수정 → 한글 + 영문 + 숫자 허용 (2~5자)
+    // ✅ 태그: 한글/영문/숫자 허용 (2~5자)
     if (!/^[\p{L}\p{N}]{2,5}$/u.test(tagLine)) {
-     return { error: "❌ 태그는 2~5자의 한글/영문/숫자여야 합니다." };
-}
+      return { error: "❌ 태그는 2~5자의 한글/영문/숫자여야 합니다." };
+    }
+
+    return { gameName, tagLine };
+  } // ← 함수 닫는 중괄호 추가!!!
 
   const parsed = parseRiotId(rawInput);
   if (parsed.error) {
     return interaction.reply({ content: parsed.error, ephemeral: true });
   }
-  const { gameName, tagLine } = parsed;
 
-  // 디버그 로그(배포 중엔 꺼도 됨)
-  console.log(`[계정등록] raw="${rawInput}" -> gameName="${gameName}", tagLine="${tagLine}"`);
+  // 이름 겹침 방지 → parsedGameName / parsedTagLine 으로 사용
+  const { gameName: parsedGameName, tagLine: parsedTagLine } = parsed;
+
+  // 디버그 로그
+  console.log(`[계정등록] raw="${rawInput}" -> gameName="${parsedGameName}", tagLine="${parsedTagLine}"`);
 
   try {
-    const url = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+    const url = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(parsedGameName)}/${encodeURIComponent(parsedTagLine)}`;
     const response = await fetch(url, { headers: { 'X-Riot-Token': riotKey } });
 
     if (response.status === 404) {
@@ -391,9 +389,8 @@ if (commandName === '계정등록') {
   } catch (err) {
     console.error("계정등록 오류:", err);
     return interaction.reply({ content: "❌ 계정 등록 중 오류가 발생했습니다.", ephemeral: true });
-   }
- }
-
+  }
+}
 
     // ✅ 계정삭제
     if (commandName === '계정삭제') {
