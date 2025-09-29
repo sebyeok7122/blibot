@@ -393,7 +393,7 @@ if (commandName === '계정등록') {
     return interaction.reply({ content: "❌ 계정 등록 중 오류가 발생했습니다.", ephemeral: true });
    }
  }
-}
+
 
     // ✅ 계정삭제
     if (commandName === '계정삭제') {
@@ -447,6 +447,7 @@ if (commandName === '계정등록') {
       return;
     }
   }
+}
 
 // -------------------
 // 2) 버튼 핸들러
