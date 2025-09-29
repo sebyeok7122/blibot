@@ -334,11 +334,12 @@ if (commandName === '계정등록') {
     const gameName = s.slice(0, idx).trim();
     const tagLine  = s.slice(idx + 1).trim().toUpperCase();
 
-    if (gameName.length < 3 || gameName.length > 16)
-      return { error: "❌ 소환사명은 3~16자여야 합니다." };
+    // ✅ 최소 길이를 2로 완화 (한글 닉네임 2글자 대응)
+    if (gameName.length < 2 || gameName.length > 16)
+      return { error: `❌ 소환사명은 2~16자여야 합니다. (입력된 길이: ${gameName.length})` };
 
     // 허용 문자(한글/영문/숫자/기본 구두점)
-    if (!/^[\p{L}\p{N} ._'-]{3,16}$/u.test(gameName))
+    if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(gameName))
       return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
 
     if (!/^[A-Z0-9]{2,5}$/.test(tagLine))
