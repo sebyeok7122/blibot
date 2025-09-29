@@ -342,11 +342,10 @@ if (commandName === '계정등록') {
     if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(gameName))
       return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
 
-    if (!/^[A-Z0-9]{2,5}$/.test(tagLine))
-      return { error: "❌ 태그는 영문/숫자 2~5자여야 합니다." };
-
-    return { gameName, tagLine };
-  }
+  // 수정 → 한글 + 영문 + 숫자 허용 (2~5자)
+    if (!/^[\p{L}\p{N}]{2,5}$/u.test(tagLine)) {
+     return { error: "❌ 태그는 2~5자의 한글/영문/숫자여야 합니다." };
+}
 
   const parsed = parseRiotId(rawInput);
   if (parsed.error) {
