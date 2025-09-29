@@ -289,44 +289,86 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 client.on('interactionCreate', async (interaction) => {
-  // -------------------
+  
+// -------------------
   // 1) 슬래시 명령어 처리
   // -------------------
   if (interaction.isChatInputCommand()) {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-    // ✅ 계정등록
-    if (commandName === '계정등록') {
-      const riotNick = options.getString('라이엇닉네임');
-      const [gameName, tagLine] = riotNick.split('#');
-      if (!gameName || !tagLine) {
-        return interaction.reply(`❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#반딧불이)`);
-      }
-      try {
-        const response = await fetch(
-          `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
-          { headers: { "X-Riot-Token": riotKey } }
-        );
-        if (response.status === 404) return interaction.reply(`❌ 없는 계정입니다.`);
-        if (!response.ok) return interaction.reply(`❌ Riot API 오류: ${response.status}`);
+// ✅ 계정등록
+if (commandName === '계정등록') {
+  const riotNick = options.getString('라이엇닉네임');
 
-        const data = await response.json();
-        const officialName = `${data.gameName}#${data.tagLine}`;
+  // 1️⃣ 닉네임 형식 검사 (정규식)
+  const regex = /^[\w가-힣]{3,16}#[A-Za-z0-9]{2,5}$/;
+  if (!regex.test(riotNick)) {
+    return interaction.reply({
+      content: "❌ 닉네임 형식이 잘못되었습니다. (예: 새벽#반딧불이 또는 소환사명#KR1)",
+      ephemeral: true
+    });
+  }
 
-        let accounts = loadAccounts();
-        if (!accounts[userId]) {
-          accounts[userId] = { riotName: officialName, puuid: data.puuid, mmr: 1000, wins: 0, losses: 0, streak: 0, gamesPlayed: 0, userTag: interaction.user.tag, type: "main" };
-          saveAccounts(accounts);
-          return interaction.reply(`✅ <@${userId}> 님의 메인 계정이 **${officialName}** 으로 등록되었습니다!`);
-        } else {
-          return interaction.reply(`⚠️ 이미 등록된 계정: **${accounts[userId].riotName}**`);
-        }
-      } catch (err) {
-        console.error("계정등록 오류:", err);
-        return interaction.reply(`❌ 계정 등록 중 오류가 발생했습니다.`);
-      }
+  const [gameName, tagLine] = riotNick.split("#");
+
+  try {
+    // 2️⃣ 라이엇 API 호출
+    const response = await fetch(
+      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
+      { headers: { "X-Riot-Token": riotKey } }
+    );
+
+    if (response.status === 404) {
+      return interaction.reply({
+        content: "❌ 존재하지 않는 라이엇 계정입니다.",
+        ephemeral: true
+      });
     }
+    if (!response.ok) {
+      return interaction.reply({
+        content: `❌ Riot API 오류: ${response.status}`,
+        ephemeral: true
+      });
+    }
+
+    const data = await response.json();
+    const officialName = `${data.gameName}#${data.tagLine}`;
+
+    // 3️⃣ 기존 accounts.json 확인 후 저장
+    let accounts = loadAccounts();
+    if (!accounts[userId]) {
+      accounts[userId] = {
+        riotName: officialName,
+        puuid: data.puuid,
+        mmr: 1000,
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        gamesPlayed: 0,
+        userTag: interaction.user.tag,
+        type: "main"
+      };
+      saveAccounts(accounts);
+
+      return interaction.reply({
+        content: `✅ <@${userId}> 님의 메인 계정이 **${officialName}** 으로 등록되었습니다!`,
+        ephemeral: true
+      });
+    } else {
+      return interaction.reply({
+        content: `⚠️ 이미 등록된 계정: **${accounts[userId].riotName}**`,
+        ephemeral: true
+      });
+    }
+  } catch (err) {
+    console.error("계정등록 오류:", err);
+    return interaction.reply({
+      content: "❌ 계정 등록 중 오류가 발생했습니다.",
+      ephemeral: true
+    });
+  }
+}
 
     // ✅ 계정삭제
     if (commandName === '계정삭제') {
