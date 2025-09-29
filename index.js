@@ -297,45 +297,79 @@ client.on('interactionCreate', async (interaction) => {
     const { commandName, options, user } = interaction;
     const userId = user.id;
 
-// ✅ 계정등록
+// ✅ 계정등록 (강화 버전)
 if (commandName === '계정등록') {
-  const riotNick = options.getString('라이엇닉네임');
+  const userId = interaction.user.id;
+  const riotKey = process.env.RIOT_API_KEY;
 
-  // 1️⃣ 닉네임 형식 검사 (정규식)
-  const regex = /^[\w가-힣]{3,16}#[A-Za-z0-9]{2,5}$/;
-  if (!regex.test(riotNick)) {
-    return interaction.reply({
-      content: "❌ 닉네임 형식이 잘못되었습니다. (예: 새벽#반딧불이 또는 소환사명#KR1)",
-      ephemeral: true
-    });
+  // 옵션명 예외 대응 (등록명이 영어일 수 있음)
+  const rawInput =
+    options.getString('라이엇닉네임') ??
+    options.getString('riotnick') ??
+    options.getString('riot_id');
+
+  // ▶ 파서: 다양한 입력을 정상화
+  function parseRiotId(input) {
+    if (!input) return { error: "❌ 닉네임을 입력해주세요. (예: 새벽#반딧불이 또는 새벽#KR1)" };
+
+    // 제로폭/전각해시/여러 공백 정리
+    let s = String(input)
+      .replace(/\u200B/g, '')         // zero-width 제거
+      .replace(/＃/g, '#')            // 전각 → 반각
+      .replace(/[\s\u00A0]+/g, ' ')   // 공백 정규화
+      .trim();
+
+    // -, @ 를 # 로 허용
+    s = s.replace(/[@\-]/g, '#');
+
+    // # 없으면 끝 토큰이 2~5자 영숫자면 태그로 간주
+    if (!s.includes('#')) {
+      const m = s.match(/^(.*?)[\s_]*([a-zA-Z0-9]{2,5})$/);
+      if (m) s = `${m[1].trim()}#${m[2]}`;
+    }
+
+    const idx = s.indexOf('#');
+    if (idx === -1) return { error: "❌ 닉네임 형식이 올바르지 않습니다. (예: 새벽#반딧불이 또는 새벽#KR1)" };
+
+    const gameName = s.slice(0, idx).trim();
+    const tagLine  = s.slice(idx + 1).trim().toUpperCase();
+
+    if (gameName.length < 3 || gameName.length > 16)
+      return { error: "❌ 소환사명은 3~16자여야 합니다." };
+
+    // 허용 문자(한글/영문/숫자/기본 구두점)
+    if (!/^[\p{L}\p{N} ._'-]{3,16}$/u.test(gameName))
+      return { error: "❌ 소환사명에 허용되지 않는 문자가 포함되어 있습니다." };
+
+    if (!/^[A-Z0-9]{2,5}$/.test(tagLine))
+      return { error: "❌ 태그는 영문/숫자 2~5자여야 합니다." };
+
+    return { gameName, tagLine };
   }
 
-  const [gameName, tagLine] = riotNick.split("#");
+  const parsed = parseRiotId(rawInput);
+  if (parsed.error) {
+    return interaction.reply({ content: parsed.error, ephemeral: true });
+  }
+  const { gameName, tagLine } = parsed;
+
+  // 디버그 로그(배포 중엔 꺼도 됨)
+  console.log(`[계정등록] raw="${rawInput}" -> gameName="${gameName}", tagLine="${tagLine}"`);
 
   try {
-    // 2️⃣ 라이엇 API 호출
-    const response = await fetch(
-      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`,
-      { headers: { "X-Riot-Token": riotKey } }
-    );
+    const url = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+    const response = await fetch(url, { headers: { 'X-Riot-Token': riotKey } });
 
     if (response.status === 404) {
-      return interaction.reply({
-        content: "❌ 존재하지 않는 라이엇 계정입니다.",
-        ephemeral: true
-      });
+      return interaction.reply({ content: "❌ 존재하지 않는 라이엇 계정입니다.", ephemeral: true });
     }
     if (!response.ok) {
-      return interaction.reply({
-        content: `❌ Riot API 오류: ${response.status}`,
-        ephemeral: true
-      });
+      return interaction.reply({ content: `❌ Riot API 오류: ${response.status}`, ephemeral: true });
     }
 
     const data = await response.json();
     const officialName = `${data.gameName}#${data.tagLine}`;
 
-    // 3️⃣ 기존 accounts.json 확인 후 저장
     let accounts = loadAccounts();
     if (!accounts[userId]) {
       accounts[userId] = {
@@ -350,24 +384,15 @@ if (commandName === '계정등록') {
         type: "main"
       };
       saveAccounts(accounts);
-
-      return interaction.reply({
-        content: `✅ <@${userId}> 님의 메인 계정이 **${officialName}** 으로 등록되었습니다!`,
-        ephemeral: true
-      });
+      return interaction.reply({ content: `✅ <@${userId}> 메인 계정이 **${officialName}** 으로 등록되었습니다!`, ephemeral: true });
     } else {
-      return interaction.reply({
-        content: `⚠️ 이미 등록된 계정: **${accounts[userId].riotName}**`,
-        ephemeral: true
-      });
+      return interaction.reply({ content: `⚠️ 이미 등록된 계정: **${accounts[userId].riotName}**`, ephemeral: true });
     }
   } catch (err) {
     console.error("계정등록 오류:", err);
-    return interaction.reply({
-      content: "❌ 계정 등록 중 오류가 발생했습니다.",
-      ephemeral: true
-    });
-  }
+    return interaction.reply({ content: "❌ 계정 등록 중 오류가 발생했습니다.", ephemeral: true });
+   }
+ }
 }
 
     // ✅ 계정삭제
