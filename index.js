@@ -114,52 +114,6 @@ function saveAccounts(accounts) {
   }
 }
 
-// ✅ roomState 저장/복원
-const roomState = new Map();
-function saveRooms() {
-  const obj = {};
-  for (const [key, value] of roomState.entries()) {
-    obj[key] = {
-      members: value.members,
-      lanes: value.lanes,
-      tiers: value.tiers,
-      last: [...value.last],
-      wait: [...value.wait],
-      startTime: value.startTime,
-      isAram: value.isAram,
-      joinedAt: value.joinedAt
-    };
-  }
-  fs.writeFileSync(ROOMS_PATH, JSON.stringify(obj, null, 2));
-}
-function loadRooms() {
-  if (fs.existsSync(ROOMS_PATH)) {
-    try {
-      const obj = JSON.parse(fs.readFileSync(ROOMS_PATH, 'utf8'));
-      if (!Object.keys(obj).length) {
-        console.warn("⚠️ rooms.json이 비어있음. 새 상태 초기화.");
-        return;
-      }
-      for (const [key, value] of Object.entries(obj)) {
-        roomState.set(key, {
-          members: value.members || [],
-          lanes: value.lanes || {},
-          tiers: value.tiers || {},
-          last: new Set(value.last || []),
-          wait: new Set(value.wait || []),
-          startTime: value.startTime,
-          isAram: value.isAram,
-          joinedAt: value.joinedAt || {}
-        });
-      }
-      console.log("✅ roomState 복원 완료:", roomState.size);
-    } catch (e) {
-      console.error("❌ rooms.json 파싱 오류:", e.message);
-    }
-  }
-}
-loadRooms();
-
 // ✅ 시간 포맷 (한국 기준)
 function formatKST(date) {
   return new Date(date).toLocaleString("ko-KR", {
