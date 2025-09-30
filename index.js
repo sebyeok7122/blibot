@@ -77,7 +77,7 @@ const riotKey = process.env.RIOT_API_KEY;
 
 const accountPath = path.join(__dirname, 'accounts.json');
 const LINKS_PATH = path.join(__dirname, 'deeplol_links.json');
-const ROOMS_PATH = path.join(__dirname, 'rooms.json');
+
 
 // ✅ JSON 유틸
 async function readJSONSafe(file, fallback = {}) {
