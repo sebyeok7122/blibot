@@ -1,1 +1,23 @@
-{}
+function loadRooms() {
+  try {
+    ensureDir();
+    if (!fs.existsSync(ROOMS_PATH)) {
+      console.warn('⚠️ rooms.json이 없음. 새 상태로 시작합니다.');
+      roomState = new Map();
+      return;
+    }
+    const raw = fs.readFileSync(ROOMS_PATH, 'utf8');
+    const parsed = JSON.parse(raw, reviver);
+
+    // ✅ 비정상 포맷(예: {})도 안전 처리
+    const arr = Array.isArray(parsed) ? parsed : [];
+
+    // (내가 위에서 준 normalizeStateAfterLoad 쓰는 경우)
+    roomState = new Map(arr.map(([k, v]) => [String(k), normalizeStateAfterLoad(v)]));
+
+    console.log(`✅ roomState 복원 완료: ${roomState.size}개 (경로: ${ROOMS_PATH})`);
+  } catch (e) {
+    console.error('rooms 복원 실패:', e);
+    roomState = new Map();
+  }
+}
