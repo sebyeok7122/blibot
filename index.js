@@ -983,15 +983,15 @@ if (interaction.isStringSelectMenu()) {
 
 }); // ← interactionCreate 닫기
 
-// ✅ 자동 내전 포스트 등록 (매일 오후 1시, KST)
+// ✅ 자동 내전 포스트 등록 (매일 오후 1시 15분, KST)
 const cron = require("node-cron");
 const moment = require("moment-timezone");
 
 cron.schedule(
-  "25 13 * * *", // 매일 13:25 (한국시간)
+  "30 13 * * *", // 매일 13:30 (한국시간)
   async () => {
     try {
-      const channel = await client.channels.fetch("1435841830175506442"); // #내전포스트 채널
+      const channel = await client.channels.fetch("1415338875202568354"); // 포럼 채널 ID
       if (!channel) {
         console.error("⚠️ 내전포스트 채널을 찾을 수 없습니다.");
         return;
@@ -1000,8 +1000,11 @@ cron.schedule(
       const roleId = "1412018162723061771"; // @내전알림 역할
       const now = moment().tz("Asia/Seoul").format("YYYY-MM-DD HH:mm");
 
-      await channel.send({
-        content: `
+      // ✅ 포럼 채널용 thread 생성 방식
+      await channel.threads.create({
+        name: `내전 모집 - ${now}`,
+        message: {
+          content: `
 <@&${roleId}>  
 [𝙡𝙤𝙡𝙫𝙚𝙡𝙮] 내전 모집 안내입니다 💫  
 
@@ -1016,7 +1019,8 @@ cron.schedule(
 ex) 람머스기여어 #KR1 / 정글 / 미드 / M204 / 팀장 희망  
 
 _자동 등록 시각: ${now}_
-        `.trim(),
+          `.trim(),
+        },
       });
 
       console.log(`✅ ${now} - 내전 포스트 자동 등록 완료`);
