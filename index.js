@@ -988,7 +988,7 @@ const cron = require("node-cron");
 const moment = require("moment-timezone");
 
 cron.schedule(
-  "15 13 * * *", // 매일 13:10 (한국시간)
+  "25 13 * * *", // 매일 13:25 (한국시간)
   async () => {
     try {
       const channel = await client.channels.fetch("1435841830175506442"); // #내전포스트 채널
