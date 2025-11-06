@@ -359,7 +359,7 @@ function renderEmbed(state, startTime, isAram) {
 
   // 막판 표시
   const lastText = last?.size
-    ? [...last].map((id, idx) => `${idx + 1}. <@${String(id)}>`).join('\n`)
+    ? [...last].map((id, idx) => `${idx + 1}. <@${String(id)}>`).join('\n')
     : '(없음)';
 
   const fields = [{ name: "❌ 막판", value: lastText, inline: false }];
