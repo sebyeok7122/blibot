@@ -983,12 +983,12 @@ if (interaction.isStringSelectMenu()) {
 
 }); // ← interactionCreate 닫기
 
-// ✅ 자동 내전 포스트 등록 (매일 오후 1시 00분, KST)
+// ✅ 자동 내전 포스트 등록 (매일 오후 1시 45분, KST)
 const cron = require("node-cron");
 const moment = require("moment-timezone");
 
 cron.schedule(
-  "50 13 * * *", // 매일 13:50 (한국시간)
+  "58 13 * * *", // 매일 13:58 (한국시간)
   async () => {
     try {
       const channel = await client.channels.fetch("1435841830175506442"); // 포럼 채널 ID
@@ -1000,10 +1000,13 @@ cron.schedule(
       const roleId = "1412018162723061771"; // @내전알림 역할
       const now = moment().tz("Asia/Seoul");
 
-      // ✅ 제목 포맷: ❤ 2025-11-06 21시내전 ❤
-      const formattedDate = now.format("YYYY-MM-DD");
-      const formattedHour = `21시내전`;
-      const title = `❤ ${formattedDate} ${formattedHour} ❤`;
+      // ✅ 요일 배열 (moment().day()는 0=일요일, 6=토요일)
+      const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+      const weekday = weekdays[now.day()];
+
+      // ✅ 제목 포맷: ❤ 11-06 (목) 21:00시 협곡내전 ❤
+      const date = now.format("MM-DD");
+      const title = `❤ ${date} (${weekday}) 21:00시 협곡내전 ❤`;
 
       // ✅ 포럼 채널용 thread 생성 방식
       await channel.threads.create({
